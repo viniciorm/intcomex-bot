@@ -1,0 +1,151 @@
+# .gitignore
+# Archivos y directorios que no deben subirse a GitHub
+
+# ============================================
+# CREDENCIALES Y CONFIGURACIÓN SENSIBLE
+# ============================================
+credentials.py
+*.key
+*.pem
+*.p12
+.env
+.env.local
+config.local.py
+
+# ============================================
+# ARCHIVOS DE PYTHON
+# ============================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ============================================
+# ENTORNOS VIRTUALES
+# ============================================
+venv/
+ENV/
+env/
+.venv/
+virtualenv/
+.conda/
+
+# ============================================
+# ARCHIVOS DE IDE Y EDITORES
+# ============================================
+# PyCharm
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# ============================================
+# ARCHIVOS DE SELENIUM Y NAVEGADOR
+# ============================================
+*.png
+*.jpg
+*.jpeg
+login_error.png
+screenshots/
+*.log
+
+# ============================================
+# ARCHIVOS DE DATOS Y OUTPUT
+# ============================================
+*.csv
+productos_intcomex.csv
+*.xlsx
+*.xls
+*.db
+*.sqlite
+*.sqlite3
+
+# ============================================
+# ARCHIVOS DE PRUEBAS Y COBERTURA
+# ============================================
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+*.cover
+.nyc_output/
+
+# ============================================
+# ARCHIVOS DEL SISTEMA OPERATIVO
+# ============================================
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Linux
+*~
+.directory
+.Trash-*
+
+# ============================================
+# ARCHIVOS TEMPORALES
+# ============================================
+*.tmp
+*.temp
+*.bak
+*.backup
+*.swp
+*.swo
+*~
+
+# ============================================
+# LOGS
+# ============================================
+*.log
+logs/
+*.log.*
+
+# ============================================
+# ARCHIVOS ESPECÍFICOS DEL PROYECTO
+# ============================================
+# Mantener el ejemplo pero ignorar el real
+# credentials.example.py se sube, credentials.py NO
+
+
