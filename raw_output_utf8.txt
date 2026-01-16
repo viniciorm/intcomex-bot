@@ -1,0 +1,5 @@
+--- RAW LINE 3 (HEADER) ---
+'Categoría\tSubcategoría\tNombre\tMarca\tPrecio\tDisponibilidad\tNo. de Parte\tSKU\tAtributos\n'
+
+--- RAW LINE 4 (DATA) ---
+'Computadores\tPortátiles\tAsus Notebook CZ1104CM2A-N00147 MT8186G 11.1in 32GB eMMC 4G\t"ASUS"\t185,80\tMás de 20 \t90NX07W1-M00530\tNT103ASU87\tMediaTek Kompanio 520 None / 2.05 GHz-4 GB-DDR4 SDRAM-32 GB-Share-Google Chrome OS\n'

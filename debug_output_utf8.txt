@@ -1,0 +1,25 @@
+﻿Columnas detectadas: ['Computadores', 'Portßtiles', 'Asus Notebook CZ1104CM2A-N00147 MT8186G 11.1in 32GB eMMC 4G', 'ASUS', '185,80', 'Mßs de 20 ', '90NX07W1-M00530', 'NT103ASU87', 'MediaTek Kompanio 520 None / 2.05 GHz-4 GB-DDR4 SDRAM-32 GB-Share-Google Chrome OS']
+
+Primeras 2 filas con sus nombres de columnas:
+
+Fila 0:
+  [Computadores]: 'Computadores'
+  [Portßtiles]: 'Portßtiles'
+  [Asus Notebook CZ1104CM2A-N00147 MT8186G 11.1in 32GB eMMC 4G]: 'Asus Notebook CR1104FTA-NS0213 11.6in Intel N150 8GB 64G Chr'
+  [ASUS]: 'ASUS'
+  [185,80]: 338.2
+  [Mßs de 20 ]: '1 en inventario'
+  [90NX07W1-M00530]: '90NX08W1-M00740'
+  [NT103ASU87]: 'NT103ASU89'
+  [MediaTek Kompanio 520 None / 2.05 GHz-4 GB-DDR4 SDRAM-32 GB-Share-Google Chrome OS]: 'Intel None N150 / 3.6 GHz-8 GB-LPDDR5 SDRAM-Intel UHD Graphics-Google Chrome OS-1-year warranty'
+
+Fila 1:
+  [Computadores]: 'Computadores'
+  [Portßtiles]: 'Portßtiles'
+  [Asus Notebook CZ1104CM2A-N00147 MT8186G 11.1in 32GB eMMC 4G]: 'HP Notebook 15-fd0010la 15.6in i3-N305 8GB 512GB SSD W11H 1Y'
+  [ASUS]: 'HP'
+  [185,80]: 380.66
+  [Mßs de 20 ]: 'Mßs de 20 '
+  [90NX07W1-M00530]: '80M42LA#AKH'
+  [NT103ASU87]: 'NT016HPR40'
+  [MediaTek Kompanio 520 None / 2.05 GHz-4 GB-DDR4 SDRAM-32 GB-Share-Google Chrome OS]: 'Intel Core i3 N305-8 GB-512 GB SSD-Windows 11 Home-1-year warranty'

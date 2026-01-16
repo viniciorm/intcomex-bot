@@ -14,6 +14,7 @@ import os
 import re
 import logging
 import glob
+import io
 from pathlib import Path
 from webdriver_manager.chrome import ChromeDriverManager
 
@@ -39,16 +40,16 @@ PASSWORD = INTCOMEX_PASSWORD
 # Diccionario de categorías con URLs
 URLS = {
     "Notebooks": "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.notebook?r=True",
-    "Monitores_TV": "https://store.intcomex.com/es-XCL/Products/ByCategory/mnt.tv?r=True",
-    "Monitores": "https://store.intcomex.com/es-XCL/Products/ByCategory/mnt.monitor?r=True",
-    "Desktop": "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.desktop?r=True",
-    "Tablets": "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.tablet?r=True",
-    "Impresoras_Inkjet": "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.inkjet?r=True",
-    "Impresoras_Label": "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.label?r=True",
-    "Impresoras_Laser": "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.laser?r=True",
-    "Impresoras_MFP": "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.mfp?r=True",
-    "Scanners": "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.scanner?r=True",
-    "All_in_One": "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.allone?r=True"
+    # "Monitores_TV": "https://store.intcomex.com/es-XCL/Products/ByCategory/mnt.tv?r=True",
+    # "Monitores": "https://store.intcomex.com/es-XCL/Products/ByCategory/mnt.monitor?r=True",
+    # "Desktop": "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.desktop?r=True",
+    # "Tablets": "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.tablet?r=True",
+    # "Impresoras_Inkjet": "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.inkjet?r=True",
+    # "Impresoras_Label": "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.label?r=True",
+    # "Impresoras_Laser": "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.laser?r=True",
+    # "Impresoras_MFP": "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.mfp?r=True",
+    # "Scanners": "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.scanner?r=True",
+    # "All_in_One": "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.allone?r=True"
 }
 
 # --- Configuración WooCommerce ---
@@ -61,7 +62,8 @@ LOGIN_BUTTON_SELECTOR = (By.ID, "LoginButton")
 DOWNLOAD_BUTTON_SELECTOR = (By.CSS_SELECTOR, "a.priceListButtom[href*='Csv']")
 
 # --- Constantes de Filtrado ---
-MIN_STOCK = 5  # Stock mínimo requerido (mayor a 5 unidades)
+MIN_STOCK = 0  # Restricción de stock eliminada por solicitud del usuario
+MIN_PRICE_COST = 0  # Restricción de precio eliminada por solicitud del usuario
 MARGIN_PERCENTAGE = 0.20  # 20% de margen
 
 # --- Configuración de Descargas ---
@@ -150,6 +152,32 @@ def calculate_sale_price(cost_price):
     return cost_price / (1 - MARGIN_PERCENTAGE)
 
 
+def extract_stock_number(stock_text):
+    """
+    Extrae el número de stock de un texto (ej: "Disponible: 100 unidades").
+    
+    Args:
+        stock_text: Texto con el stock
+    
+    Returns:
+        int: Número de unidades
+    """
+    if stock_text is None:
+        return 0
+    
+    if isinstance(stock_text, (int, float)):
+        return int(stock_text)
+        
+    try:
+        # Buscar el primer número en el texto
+        nums = re.findall(r'\d+', str(stock_text))
+        if nums:
+            return int(nums[0])
+        return 0
+    except:
+        return 0
+
+
 def detect_csv_encoding(file_path):
     """
     Detecta el encoding correcto del CSV de Intcomex.
@@ -190,103 +218,83 @@ def init_woocommerce_api():
         url=WC_URL,
         consumer_key=WC_CONSUMER_KEY,
         consumer_secret=WC_CONSUMER_SECRET,
-        version="wc/v3"
+        version="wc/v3",
+        timeout=30  # Aumentado a 30 segundos para evitar Timeouts en cargas masivas
     )
 
 
+def woocommerce_request(wcapi, method, endpoint, data=None, params=None, max_retries=3):
+    """
+    Realiza una petición a la API de WooCommerce con reintentos automáticos.
+    """
+    for attempt in range(max_retries):
+        try:
+            if method.lower() == 'get':
+                response = wcapi.get(endpoint, params=params)
+            elif method.lower() == 'post':
+                response = wcapi.post(endpoint, data=data)
+            elif method.lower() == 'put':
+                response = wcapi.put(endpoint, data=data)
+            else:
+                return None
+            
+            return response
+        except Exception as e:
+            if attempt < max_retries - 1:
+                wait_time = (attempt + 1) * 2
+                print(f"    ⚠ Error en API ({e}). Reintentando en {wait_time}s (Intento {attempt + 2}/{max_retries})...")
+                time.sleep(wait_time)
+            else:
+                print(f"    ❌ Fallo definitivo tras {max_retries} intentos: {e}")
+                raise e
+    return None
+
+
 def find_product_by_sku(wcapi, sku):
-    """
-    Busca un producto en WooCommerce por su SKU.
-    
-    Args:
-        wcapi: Objeto API de WooCommerce
-        sku: SKU del producto a buscar
-    
-    Returns:
-        dict: Datos del producto si existe, None si no existe
-    """
+    """ Busca un producto en WooCommerce por su SKU. """
     try:
-        response = wcapi.get("products", params={"sku": str(sku), "per_page": 1})
-        if response.status_code == 200:
+        response = woocommerce_request(wcapi, "get", "products", params={"sku": str(sku), "per_page": 1})
+        if response and response.status_code == 200:
             products = response.json()
             if products:
                 return products[0]
         return None
     except Exception as e:
-        print(f"⚠ Error al buscar producto con SKU '{sku}' en WooCommerce: {e}")
+        print(f"    ⚠ Error al buscar SKU {sku}: {e}")
         return None
 
 
 def create_product_in_woocommerce(wcapi, product_data):
-    """
-    Crea un nuevo producto en WooCommerce.
-    
-    Args:
-        wcapi: Objeto API de WooCommerce
-        product_data: Diccionario con los datos del producto
-    
-    Returns:
-        bool: True si se creó exitosamente, False en caso contrario
-    """
+    """Crea un nuevo producto en WooCommerce."""
     try:
         data = {
             "name": product_data.get("title", "Producto sin nombre"),
             "type": "simple",
             "regular_price": str(product_data.get("sale_price", "")),
             "sku": str(product_data.get("sku", "")),
-            "stock_quantity": int(product_data.get("stock", 0)),
             "manage_stock": True,
-            "stock_status": "instock" if product_data.get("stock", 0) > 0 else "outofstock",
+            "stock_quantity": int(product_data.get("stock", 0)),
+            "status": "publish",
             "shipping_class": "free-shipping",
             "tags": [{"name": "Envío Gratuito"}]
         }
         
-        # Agregar descripción si está disponible
-        if product_data.get("description"):
-            data["short_description"] = str(product_data.get("description"))
-        
-        # Agregar imagen si está disponible
         if product_data.get("image_url"):
             data["images"] = [{"src": str(product_data.get("image_url"))}]
-        
-        response = wcapi.post("products", data)
-        
-        if response.status_code in [200, 201]:
-            print(f"  ✓ Producto creado: {product_data.get('title', 'Sin nombre')[:50]}... (SKU: {product_data.get('sku')})")
-            return True
-        elif response.status_code == 401:
-            print(f"  ✗ Error de autenticación al crear producto. Verifica las credenciales API.")
-            raise Exception("Error de autenticación WooCommerce")
-        elif response.status_code == 403:
-            print(f"  ✗ Error de permisos al crear producto. Verifica los permisos de la API.")
-            raise Exception("Error de permisos WooCommerce")
-        else:
-            error_msg = ""
-            try:
-                error_data = response.json()
-                error_msg = str(error_data)
-            except:
-                error_msg = response.text[:200] if hasattr(response, 'text') else "Sin detalles"
-            print(f"  ✗ Error al crear producto {product_data.get('sku')}: HTTP {response.status_code} - {error_msg}")
-            return False
             
+        response = woocommerce_request(wcapi, "post", "products", data=data)
+        
+        if response and response.status_code in [200, 201]:
+            print(f"  ✓ Producto creado: ID {response.json().get('id')} (SKU: {product_data.get('sku')})")
+            return True
+        return False
     except Exception as e:
         print(f"  ✗ Excepción al crear producto {product_data.get('sku', 'N/A')}: {e}")
         return False
 
 
 def update_product_in_woocommerce(wcapi, product_id, product_data):
-    """
-    Actualiza un producto existente en WooCommerce.
-    
-    Args:
-        wcapi: Objeto API de WooCommerce
-        product_id: ID del producto en WooCommerce
-        product_data: Diccionario con los datos actualizados
-    
-    Returns:
-        bool: True si se actualizó exitosamente, False en caso contrario
-    """
+    """Actualiza un producto existente en WooCommerce."""
     try:
         data = {
             "regular_price": str(product_data.get("sale_price", "")),
@@ -294,15 +302,12 @@ def update_product_in_woocommerce(wcapi, product_id, product_data):
             "stock_status": "instock" if product_data.get("stock", 0) > 0 else "outofstock"
         }
         
-        response = wcapi.put(f"products/{product_id}", data)
+        response = woocommerce_request(wcapi, "put", f"products/{product_id}", data=data)
         
-        if response.status_code == 200:
+        if response and response.status_code == 200:
             print(f"  ✓ Producto actualizado: ID {product_id} (SKU: {product_data.get('sku')})")
             return True
-        else:
-            print(f"  ✗ Error al actualizar producto {product_id}: {response.status_code}")
-            return False
-            
+        return False
     except Exception as e:
         print(f"  ✗ Excepción al actualizar producto {product_id}: {e}")
         return False
@@ -734,88 +739,75 @@ def sincronizar_csv(archivo_csv, wcapi, category_name, valor_dolar):
         print(f"  📖 Procesando CSV: {archivo_csv}")
         print(f"  💵 Usando valor del dólar: ${valor_dolar:,.2f} CLP")
         
-        # Leer los productos desde la Fila 3 (header=2 significa que la fila 3 es el encabezado)
-        # Separador: TAB, Encoding: utf-16 (con fallback a latin-1)
-        df = None
-        encodings_to_try = ['utf-16', 'latin-1', 'utf-8', 'iso-8859-1', 'cp1252']
-        
-        for encoding in encodings_to_try:
-            try:
-                # Leer CSV con header=2 (la fila 3 contiene los encabezados)
-                # Separador TAB, encoding según intento actual
-                try:
-                    df = pd.read_csv(
-                        archivo_csv,
-                        encoding=encoding,
-                        sep='\t',  # Separador TAB
-                        header=2,  # La fila 3 (índice 2) contiene los encabezados
-                        low_memory=False,
-                        engine='python',
-                        on_bad_lines='skip'  # Saltar líneas con errores (pandas < 2.0)
-                    )
-                except TypeError:
-                    # Para pandas >= 2.0
-                    try:
-                        df = pd.read_csv(
-                            archivo_csv,
-                            encoding=encoding,
-                            sep='\t',
-                            header=2,
-                            low_memory=False,
-                            engine='python',
-                            on_bad_lines=lambda x: None
-                        )
-                    except Exception as e:
-                        continue
-                
-                # Verificar que se leyó correctamente (debe tener varias columnas)
-                if df is not None and len(df.columns) > 3:
-                    print(f"  ✓ CSV leído con encoding: {encoding}, separador: TAB")
+        # Lectura ULTRA robusta usando StringIO para evitar errores de tokenización
+        try:
+            with open(archivo_csv, 'r', encoding='utf-16') as f:
+                lines = f.readlines()
+            
+            # Buscar la cabecera dinámicamente
+            header_idx = -1
+            for i, line in enumerate(lines[:20]): # Revisar las primeras 20 líneas
+                l = line.lower()
+                if 'sku' in l or 'categoría' in l or 'nombre' in l:
+                    header_idx = i
                     break
-                else:
-                    df = None
-            except Exception as e:
-                continue
+            
+            if header_idx == -1:
+                raise Exception("No se encontró la fila de cabecera en el CSV")
+
+            print(f"  ✓ Cabecera detectada en la fila {header_idx}")
+            
+            # Crear DataFrame desde el bloque de datos que empieza en la cabecera
+            csv_content = "".join(lines[header_idx:])
+            df = pd.read_csv(
+                io.StringIO(csv_content),
+                sep='\t',
+                decimal=',',
+                on_bad_lines='skip',
+                engine='python'
+            )
+            print(f"  ✓ CSV cargado con éxito. Filas: {len(df)}")
+            
+        except Exception as e:
+            print(f"  ❌ Fallo crítico en lectura de CSV: {e}")
+            return stats
+
+        if df.empty:
+            print("  ⚠ El archivo está vacío.")
+            return stats
         
-        if df is None or len(df.columns) <= 1:
-            raise Exception("No se pudo leer el CSV. Formato no reconocido.")
+        # Filtrar filas que sean completamente nulas o que no tengan SKU
+        df = df.dropna(subset=[df.columns[0]]) # Asumimos que la primera columna debe tener datos
         
-        print(f"  ✓ CSV leído: {len(df)} filas de productos, {len(df.columns)} columnas encontradas")
-        print(f"  📋 Columnas disponibles: {', '.join(df.columns.tolist()[:5])}...")
-        
-        # Identificar columnas (nombres en español de Intcomex)
+        # Mapeo DINÁMICO para mayor robustez
         sku_col = None
         price_col = None
         stock_col = None
         desc_col = None
-        image_col = None
         
         for col in df.columns:
-            col_str = str(col).strip()
-            col_lower = col_str.lower()
-            
-            # Buscar SKU
-            if 'sku' in col_lower or 'codigo' in col_lower or 'parte' in col_lower or 'número' in col_lower:
-                sku_col = col
-            # Buscar Precio (en español: "Precio")
-            elif 'precio' in col_lower or 'price' in col_lower or 'costo' in col_lower or 'cost' in col_lower:
-                price_col = col
-            # Buscar Stock (en español: "Disponibilidad")
-            elif 'disponibilidad' in col_lower or 'stock' in col_lower or 'existencia' in col_lower or 'cantidad' in col_lower or 'inventario' in col_lower:
-                stock_col = col
-            # Buscar Descripción (en español: "Nombre")
-            elif 'nombre' in col_lower or 'name' in col_lower or 'descripcion' in col_lower or 'description' in col_lower or 'producto' in col_lower:
-                desc_col = col
-            # Buscar Imagen
-            elif 'imagen' in col_lower or 'image' in col_lower or 'url' in col_lower or 'foto' in col_lower:
-                image_col = col
+            c = str(col).strip().lower()
+            if c == 'sku': sku_col = col
+            elif c == 'precio': price_col = col
+            elif c == 'disponibilidad' or c == 'existencia': stock_col = col
+            elif c == 'nombre' or c == 'descripción': desc_col = col
+
+        if not sku_col or not price_col:
+            # Fallback a búsqueda parcial si la exacta falla
+            for col in df.columns:
+                c = str(col).strip().lower()
+                if 'sku' in c: sku_col = col
+                elif 'precio' in c: price_col = col
+                elif 'disponibil' in c: stock_col = col
+                elif 'nombre' in c: desc_col = col
         
-        print(f"  📊 Columnas detectadas:")
-        print(f"     - SKU: {sku_col}")
-        print(f"     - Precio: {price_col}")
-        print(f"     - Stock: {stock_col}")
-        print(f"     - Descripción: {desc_col}")
-        print(f"     - Imagen: {image_col}")
+        image_col = None # No hay columna de imagen en este CSV
+        
+        print(f"  📊 Mapeo final:")
+        print(f"     - SKU: '{sku_col}'")
+        print(f"     - Precio: '{price_col}'")
+        print(f"     - Stock: '{stock_col}'")
+        print(f"     - Nombre: '{desc_col}'")
         
         if not sku_col or not price_col:
             raise Exception(f"Columnas obligatorias no encontradas: SKU={sku_col}, Precio={price_col}")
@@ -827,21 +819,10 @@ def sincronizar_csv(archivo_csv, wcapi, category_name, valor_dolar):
                 sku = row[sku_col] if sku_col else None
                 price_text = row[price_col] if price_col else None
                 
-                # Extraer stock de la columna "Disponibilidad" que puede tener formato "11 en inventario" o "Más de 20"
+                # Extraer stock de la columna "Disponibilidad"
                 stock = 0
                 if stock_col and pd.notna(row[stock_col]):
-                    stock_text = str(row[stock_col]).strip()
-                    # Buscar números en el texto (ej: "11 en inventario" -> 11, "Más de 20" -> 20)
-                    numbers = re.findall(r'\d+', stock_text)
-                    if numbers:
-                        stock = int(numbers[0])
-                    elif 'más' in stock_text.lower() or 'more' in stock_text.lower() or 'mayor' in stock_text.lower():
-                        # Si dice "Más de 20" o similar, extraer el número o asumir mínimo + 1
-                        numbers = re.findall(r'\d+', stock_text)
-                        if numbers:
-                            stock = int(numbers[0]) + 1  # "Más de 20" -> 21
-                        else:
-                            stock = MIN_STOCK + 1  # Si no hay número, asumir mínimo requerido + 1
+                    stock = extract_stock_number(row[stock_col])
                 
                 description = str(row[desc_col]) if desc_col and pd.notna(row[desc_col]) else "Sin descripción"
                 image_url = str(row[image_col]) if image_col and pd.notna(row[image_col]) else None
@@ -862,11 +843,19 @@ def sincronizar_csv(archivo_csv, wcapi, category_name, valor_dolar):
                         print(f"    ⚠ Error en precio USD: {description[:50]}... - Precio inválido: {price_text}")
                     continue
                 
-                # FILTRADO: Stock > 5 (filtro por precio eliminado - todas las categorías tienen precios altos)
+                # FILTRADO: Stock > 50 y Precio Costo CLP > 150000
+                precio_costo_clp = precio_usd * valor_dolar
+                
                 if stock <= MIN_STOCK:
                     stats["filtrados"] += 1
-                    if idx < 5:  # Mostrar primeros 5 filtrados para debugging
-                        print(f"    ⊘ Filtrado (stock insuficiente): {description[:50]}... - Stock: {stock} (mínimo requerido: >{MIN_STOCK})")
+                    if idx < 5:
+                        print(f"    ⊘ Filtrado (stock insuficiente): {description[:50]}... - Stock: {stock} (Min: {MIN_STOCK})")
+                    continue
+                
+                if precio_costo_clp < MIN_PRICE_COST:
+                    stats["filtrados"] += 1
+                    if idx < 5:
+                        print(f"    ⊘ Filtrado (precio bajo): {description[:50]}... - Costo CLP: ${precio_costo_clp:,.0f} (Min: {MIN_PRICE_COST})")
                     continue
                 
                 # Convertir USD a CLP y aplicar margen del 20%
@@ -921,7 +910,7 @@ def sincronizar_csv(archivo_csv, wcapi, category_name, valor_dolar):
                 if stats["procesados"] % 10 == 0:
                     print(f"    📊 Progreso: {stats['procesados']} procesados, {stats['creados']} creados, {stats['actualizados']} actualizados, {stats['filtrados']} filtrados")
                 
-                time.sleep(0.3)  # Pequeña pausa entre productos para no sobrecargar la API
+                time.sleep(1.0)  # Pausa de 1 segundo para evitar saturar el servidor/API
                 
             except Exception as e:
                 stats["errores"] += 1

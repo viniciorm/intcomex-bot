@@ -1,0 +1,118 @@
+﻿============================================================
+INICIANDO SINCRONIZACION LOCAL (Modo Test)
+============================================================
+Conectando con WooCommerce (https://tupartnerti.cl)...
+Procesando archivo local: C:\Users\marco\Documents\GitHub\intcomex-bot\downloads\Notebooks.csv
+  ­ƒôû Procesando CSV: C:\Users\marco\Documents\GitHub\intcomex-bot\downloads\Notebooks.csv
+  ­ƒÆÁ Usando valor del d├│lar: $890.00 CLP
+  Ô£ô Cabecera detectada en la fila 2
+  Ô£ô CSV cargado con ├®xito. Filas: 92
+  ­ƒôè Mapeo final:
+     - SKU: 'SKU'
+     - Precio: 'Precio'
+     - Stock: 'Disponibilidad'
+     - Nombre: 'Nombre'
+  Ô£ô Producto creado: Asus Notebook CZ1104CM2A-N00147 MT8186G 11.1in 32G... (SKU: NT103ASU87)
+    Ôèÿ Filtrado (stock insuficiente): Asus Notebook CR1104FTA-NS0213 11.6in Intel N150 8... - Stock: 1 (Min: 19)
+  Ô£ù Excepci├│n al crear producto NT016HPR40: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+  Ô£ô Producto creado: HP Notebook 240 G10 i3-1315U 14in 8GB 512GB SSD Wi... (SKU: NT026HPQ81)
+    Ôèÿ Filtrado (stock insuficiente): HP Notebook 250 G10 15in i3-N305 HD 8GB 256GB SSD ... - Stock: 1 (Min: 19)
+  Ô£ù Excepci├│n al crear producto NT018HPR30: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+  Ô£ô Producto creado: DELL 14 5440 14"FHD i5-1334U 8GB 512GB SSD W11Pro ... (SKU: NT085DEL91)
+  Ô£ô Producto creado: DELL Notebook Pro Essential 14" Core 5 120U 16GB 5... (SKU: NT094DEL04)
+  Ô£ô Producto creado: DELL PRO 14"FHD Core 5 120U 8GB 512GB SSD W11Pro G... (SKU: NT087DEL74)
+  Ô£ô Producto creado: Lenovo Notebook V14 G5 i7-13620H 16GB 512GB SSD 14... (SKU: NT075LEN49)
+  Ô£ô Producto creado: Asus Notebook B1403CVA-S65610X 14in Core 5 120U 16... (SKU: NT104ASU11)
+  Ô£ù Excepci├│n al crear producto NT094DEL01: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+    ­ƒôè Progreso: 10 procesados, 7 creados, 0 actualizados, 6 filtrados
+ÔÜá Error al buscar producto con SKU 'NT103ASU74' en WooCommerce: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+  Ô£ù Excepci├│n al crear producto NT103ASU74: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+ÔÜá Error al buscar producto con SKU 'NT071LEN98' en WooCommerce: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+  Ô£ù Excepci├│n al crear producto NT071LEN98: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+ÔÜá Error al buscar producto con SKU 'NT104ASU16' en WooCommerce: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+  Ô£ù Excepci├│n al crear producto NT104ASU16: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+ÔÜá Error al buscar producto con SKU 'NT025HPQ06' en WooCommerce: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+  Ô£ù Excepci├│n al crear producto NT025HPQ06: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+ÔÜá Error al buscar producto con SKU 'NT104ASU10' en WooCommerce: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+  Ô£ù Excepci├│n al crear producto NT104ASU10: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+ÔÜá Error al buscar producto con SKU 'NT029HPQ18' en WooCommerce: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+  Ô£ù Excepci├│n al crear producto NT029HPQ18: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+ÔÜá Error al buscar producto con SKU 'NT029HPQ86' en WooCommerce: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+  Ô£ù Excepci├│n al crear producto NT029HPQ86: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+ÔÜá Error al buscar producto con SKU 'NT089DEL78' en WooCommerce: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+  Ô£ù Excepci├│n al crear producto NT089DEL78: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+ÔÜá Error al buscar producto con SKU 'KT034XCL51' en WooCommerce: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+  Ô£ù Excepci├│n al crear producto KT034XCL51: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+ÔÜá Error al buscar producto con SKU 'NT025HPQ26' en WooCommerce: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+  Ô£ù Excepci├│n al crear producto NT025HPQ26: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+    ­ƒôè Progreso: 20 procesados, 7 creados, 0 actualizados, 10 filtrados
+ÔÜá Error al buscar producto con SKU 'NT028HPQ93' en WooCommerce: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+  Ô£ù Excepci├│n al crear producto NT028HPQ93: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+ÔÜá Error al buscar producto con SKU 'NT029HPQ87' en WooCommerce: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+  Ô£ù Excepci├│n al crear producto NT029HPQ87: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+ÔÜá Error al buscar producto con SKU 'NT072LEN01' en WooCommerce: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+  Ô£ù Excepci├│n al crear producto NT072LEN01: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+ÔÜá Error al buscar producto con SKU 'NT075LEN35' en WooCommerce: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+  Ô£ù Excepci├│n al crear producto NT075LEN35: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+ÔÜá Error al buscar producto con SKU 'NT029HPQ17' en WooCommerce: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+  Ô£ù Excepci├│n al crear producto NT029HPQ17: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+ÔÜá Error al buscar producto con SKU 'NT104ASU14' en WooCommerce: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+  Ô£ù Excepci├│n al crear producto NT104ASU14: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+ÔÜá Error al buscar producto con SKU 'NT029HPQ06' en WooCommerce: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+  Ô£ù Excepci├│n al crear producto NT029HPQ06: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+ÔÜá Error al buscar producto con SKU 'NT029HPQ55' en WooCommerce: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+  Ô£ù Excepci├│n al crear producto NT029HPQ55: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+ÔÜá Error al buscar producto con SKU 'NT029HPQ88' en WooCommerce: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+  Ô£ù Excepci├│n al crear producto NT029HPQ88: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+ÔÜá Error al buscar producto con SKU 'NT075LEN34' en WooCommerce: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+  Ô£ù Excepci├│n al crear producto NT075LEN34: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+    ­ƒôè Progreso: 30 procesados, 7 creados, 0 actualizados, 17 filtrados
+ÔÜá Error al buscar producto con SKU 'NT075LEN31' en WooCommerce: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+  Ô£ù Excepci├│n al crear producto NT075LEN31: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+ÔÜá Error al buscar producto con SKU 'NT076LEN27' en WooCommerce: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+  Ô£ù Excepci├│n al crear producto NT076LEN27: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+ÔÜá Error al buscar producto con SKU 'NT075LEN33' en WooCommerce: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+  Ô£ù Excepci├│n al crear producto NT075LEN33: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+ÔÜá Error al buscar producto con SKU 'NT103ASU39' en WooCommerce: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+  Ô£ù Excepci├│n al crear producto NT103ASU39: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+ÔÜá Error al buscar producto con SKU 'NT104ASU07' en WooCommerce: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+  Ô£ù Excepci├│n al crear producto NT104ASU07: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+ÔÜá Error al buscar producto con SKU 'NT076LEN31' en WooCommerce: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+  Ô£ù Excepci├│n al crear producto NT076LEN31: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+ÔÜá Error al buscar producto con SKU 'NT103ASU56' en WooCommerce: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+  Ô£ù Excepci├│n al crear producto NT103ASU56: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+ÔÜá Error al buscar producto con SKU 'NT028HPQ95' en WooCommerce: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+  Ô£ù Excepci├│n al crear producto NT028HPQ95: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+ÔÜá Error al buscar producto con SKU 'NT029HPQ58' en WooCommerce: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+  Ô£ù Excepci├│n al crear producto NT029HPQ58: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+ÔÜá Error al buscar producto con SKU 'NT076LEN28' en WooCommerce: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+  Ô£ù Excepci├│n al crear producto NT076LEN28: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+    ­ƒôè Progreso: 40 procesados, 7 creados, 0 actualizados, 22 filtrados
+ÔÜá Error al buscar producto con SKU 'NT030HPQ14' en WooCommerce: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+  Ô£ù Excepci├│n al crear producto NT030HPQ14: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+ÔÜá Error al buscar producto con SKU 'NT027HPQ62' en WooCommerce: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+  Ô£ù Excepci├│n al crear producto NT027HPQ62: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+ÔÜá Error al buscar producto con SKU 'NT075LEN51' en WooCommerce: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+  Ô£ù Excepci├│n al crear producto NT075LEN51: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+ÔÜá Error al buscar producto con SKU 'NT028HPQ27' en WooCommerce: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+  Ô£ù Excepci├│n al crear producto NT028HPQ27: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+ÔÜá Error al buscar producto con SKU 'NT029HPQ21' en WooCommerce: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+  Ô£ù Excepci├│n al crear producto NT029HPQ21: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+ÔÜá Error al buscar producto con SKU 'NT028HPQ26' en WooCommerce: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+  Ô£ù Excepci├│n al crear producto NT028HPQ26: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+ÔÜá Error al buscar producto con SKU 'NT075LEN50' en WooCommerce: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+  Ô£ù Excepci├│n al crear producto NT075LEN50: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+ÔÜá Error al buscar producto con SKU 'NT075LEN76' en WooCommerce: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+  Ô£ù Excepci├│n al crear producto NT075LEN76: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+ÔÜá Error al buscar producto con SKU 'NT071LEN90' en WooCommerce: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+  Ô£ù Excepci├│n al crear producto NT071LEN90: HTTPSConnectionPool(host='tupartnerti.cl', port=443): Read timed out. (read timeout=5)
+
+============================================================
+­ƒôè RESUMEN DE EJECUCI├ôN
+============================================================
+Ô£à Productos procesados: 49
+Ô¡É Creados:           7
+­ƒöä Actualizados:      0
+­ƒÜ½ Filtrados:         43
+ÔÜá´©Å Errores:           42
+============================================================

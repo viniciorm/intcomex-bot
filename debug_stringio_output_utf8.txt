@@ -1,0 +1,4 @@
+﻿Header detectado en linea: 2
+Pandas cargo exitosamente 92 filas.
+Columnas: ['Categor├¡a', 'Subcategor├¡a', 'Nombre', 'Marca', 'Precio', 'Disponibilidad', 'No. de Parte', 'SKU', 'Atributos']
+Primera fila: {'Categor├¡a': 'Computadores', 'Subcategor├¡a': 'Port├ítiles', 'Nombre': 'Asus Notebook CZ1104CM2A-N00147 MT8186G 11.1in 32GB eMMC 4G', 'Marca': 'ASUS', 'Precio': 185.8, 'Disponibilidad': 'M├ís de 20 ', 'No. de Parte': '90NX07W1-M00530', 'SKU': 'NT103ASU87', 'Atributos': 'MediaTek Kompanio 520 None / 2.05 GHz-4 GB-DDR4 SDRAM-32 GB-Share-Google Chrome OS'}
