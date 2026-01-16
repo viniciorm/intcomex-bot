@@ -1,8 +1,17 @@
+import os
+import time
+import re
 import io
 import json
-import re
+import pandas as pd
 from woocommerce import API
 
+class WooSync:
+    """
+    Clase responsable de la carga de datos (Load) hacia WooCommerce.
+    Implementa lógica de categorías jerárquicas, mapeo de imágenes y filtros de negocio.
+    """
+    
     def __init__(self, url, consumer_key, consumer_secret):
         self.wcapi = API(
             url=url,
@@ -12,9 +21,10 @@ from woocommerce import API
             timeout=60
         )
         self.margin_percentage = 0.20
-        self.category_cache = {} # Cache para no consultar la API repetidamente
+        self.category_cache = {}  # Para evitar consultas repetidas a la API
 
     def woocommerce_request(self, method, endpoint, data=None, params=None, max_retries=3):
+        """Wrapper con reintentos para la API de WooCommerce."""
         for attempt in range(max_retries):
             try:
                 if method.lower() == 'get':
@@ -23,7 +33,8 @@ from woocommerce import API
                     response = self.wcapi.post(endpoint, data=data)
                 elif method.lower() == 'put':
                     response = self.wcapi.put(endpoint, data=data)
-                else: return None
+                else: 
+                    return None
                 
                 if response.status_code in [200, 201]:
                     return response
@@ -32,23 +43,24 @@ from woocommerce import API
             except Exception as e:
                 if attempt < max_retries - 1:
                     wait = (attempt + 1) * 5
-                    print(f"    ⚠️ Error de red... Reintentando en {wait}s ({attempt+1}/{max_retries})")
+                    print(f"    ⚠️ Error de conexión ({e}). Reintentando en {wait}s ({attempt+1}/{max_retries})...")
                     time.sleep(wait)
                 else:
-                    print(f"    ❌ Fallo crítico tras {max_retries} reintentos.")
+                    print(f"    ❌ Fallo definitivo tras {max_retries} intentos.")
                     return None
         return None
 
     def get_or_create_category(self, name, parent_id=0):
-        """Busca o crea una categoría en WooCommerce y retorna su ID."""
+        """Busca o crea una categoría jerárquica en WooCommerce."""
         name = str(name).strip().title()
-        cache_key = f"{name}_{parent_id}"
+        if not name or name == 'Nan': return 0
         
+        cache_key = f"{name}_{parent_id}"
         if cache_key in self.category_cache:
             return self.category_cache[cache_key]
             
-        # Buscar categoría por nombre
-        response = self.woocommerce_request("get", "products/categories", params={"search": name})
+        # Buscar por nombre exacto y padre
+        response = self.woocommerce_request("get", "products/categories", params={"search": name, "per_page": 100})
         if response:
             categories = response.json()
             for cat in categories:
@@ -56,8 +68,8 @@ from woocommerce import API
                     self.category_cache[cache_key] = cat['id']
                     return cat['id']
                     
-        # Si no existe, crearla
-        print(f"    📁 Creando nueva categoría: {name} (parent: {parent_id})")
+        # Crear si no existe
+        print(f"    📁 Creando categoría: {name} (Padre ID: {parent_id})")
         data = {"name": name, "parent": parent_id}
         response = self.woocommerce_request("post", "products/categories", data=data)
         if response:
@@ -68,6 +80,7 @@ from woocommerce import API
         return 0
 
     def find_product_by_sku(self, sku):
+        """Busca un producto existente por su SKU."""
         response = self.woocommerce_request("get", "products", params={"sku": str(sku)})
         if response:
             products = response.json()
@@ -75,111 +88,125 @@ from woocommerce import API
         return None
 
     def process_files(self, file_list, dollar_value, image_map_path="downloads/mapa_imagenes.json"):
-        stats = {"total_processed": 0, "updates": 0, "creations": 0, "errors": 0}
+        """Procesa la lista de archivos CSV y sincroniza con la API."""
+        stats = {"total_processed": 0, "updates": 0, "creations": 0, "errors": 0, "filtered": 0}
         
-        # Cargar mapa de imágenes desde JSON
+        # 1. Cargar Mapa de Imágenes
         image_map = {}
         if os.path.exists(image_map_path):
             try:
                 with open(image_map_path, 'r', encoding='utf-8') as f:
                     image_map = json.load(f)
-                print(f"📂 Mapa de imágenes cargado: {len(image_map)} SKUs")
+                print(f"🖼️ Mapa de imágenes cargado: {len(image_map)} productos.")
             except Exception as e:
-                print(f"⚠️ Error al cargar mapa de imágenes: {e}")
+                print(f"⚠️ No se pudo cargar el mapa de imágenes: {e}")
 
+        # 2. Iterar sobre archivos
         for file_path in file_list:
-            cat_name = os.path.basename(file_path).replace(".csv", "")
-            print(f"\n🚀 Sincronizando categoría desde archivo: {cat_name}")
+            print(f"\n📖 Procesando: {os.path.basename(file_path)}")
             
             try:
-                # Lectura robusta con StringIO
+                # Lectura de CSV según requisitos (UTF-16, Tab, Header=2)
                 with open(file_path, 'r', encoding='utf-16') as f:
-                    lines = f.readlines()
+                    content = f.read()
                 
-                header_idx = -1
-                for i, line in enumerate(lines[:20]):
-                    if 'sku' in line.lower() or 'categoría' in line.lower() or 'categoria' in line.lower():
-                        header_idx = i
-                        break
+                df = pd.read_csv(
+                    io.StringIO(content),
+                    sep='\t',
+                    header=2,
+                    decimal=',',
+                    engine='python'
+                )
                 
-                if header_idx == -1: 
-                    print(f"❌ No se encontró cabecera en {file_path}")
-                    continue
-                
-                csv_content = "".join(lines[header_idx:])
-                df = pd.read_csv(io.StringIO(csv_content), sep='\t', decimal=',', engine='python')
-                
-                # Mapeo de columnas
-                sku_col = next((c for c in df.columns if 'sku' in c.lower()), None)
-                price_col = next((c for c in df.columns if 'precio' in c.lower()), None)
-                stock_col = next((c for c in df.columns if 'disponibilidad' in c.lower()), None)
-                name_col = next((c for c in df.columns if 'nombre' in c.lower()), None)
-                parent_cat_col = next((c for c in df.columns if 'categoría' in c.lower() or 'categoria' in c.lower()), None)
-                sub_cat_col = next((c for c in df.columns if 'subcategoría' in c.lower() or 'subcategoria' in c.lower()), None)
-                
-                for _, row in df.iterrows():
-                    try:
-                        sku = str(row[sku_col]).strip()
-                        if not sku or sku == 'nan': continue
-                        
-                        price_usd = float(str(row[price_col]).replace(',', '.'))
-                        precio_clp = round((price_usd * dollar_value) / (1 - self.margin_percentage))
-                        
-                        # Extraer stock
-                        stock_text = str(row[stock_col]).lower()
-                        stock_nums = re.findall(r'\d+', stock_text)
-                        stock = int(stock_nums[0]) if stock_nums else (20 if 'más' in stock_text or 'mas' in stock_text else 0)
-                        
-                        # Gestión de Categorías
-                        id_cat_final = 0
-                        if parent_cat_col and sub_cat_col:
-                            parent_name = str(row[parent_cat_col])
-                            sub_name = str(row[sub_cat_col])
-                            if parent_name != 'nan' and sub_name != 'nan':
-                                id_padre = self.get_or_create_category(parent_name)
-                                id_cat_final = self.get_or_create_category(sub_name, parent_id=id_padre)
+                # Identificar columnas dinámicamente por nombre
+                col_sku = next((c for c in df.columns if 'sku' in c.lower()), None)
+                col_name = next((c for c in df.columns if 'nombre' in c.lower()), None)
+                col_price = next((c for c in df.columns if 'precio' in c.lower()), None)
+                col_stock = next((c for c in df.columns if 'disponibilidad' in c.lower()), None)
+                col_cat = next((c for c in df.columns if 'Categoría' == c or 'Categoria' == c), None)
+                col_subcat = next((c for c in df.columns if 'Subcategoría' == c or 'Subcategoria' == c), None)
 
+                for _, row in df.iterrows():
+                    sku = str(row[col_sku]).strip() if col_sku else None
+                    if not sku or sku == 'nan': continue
+
+                    try:
+                        # --- Limpieza y Conversión ---
+                        # Precio (Costo USD -> Costo CLP)
+                        cost_usd = float(str(row[col_price]).replace('$', '').replace(' ', '').replace(',', '.'))
+                        cost_clp = cost_usd * dollar_value
+                        
+                        # Stock
+                        stock_text = str(row[col_stock]).lower()
+                        if 'más de 20' in stock_text or 'mas de 20' in stock_text:
+                            stock = 20
+                        elif 'sin stock' in stock_text:
+                            stock = 0
+                        else:
+                            nums = re.findall(r'\d+', stock_text)
+                            stock = int(nums[0]) if nums else 0
+
+                        # --- Filtros de Negocio ---
+                        # Requisito: Stock >= 20 y Costo CLP > 150,000
+                        if stock < 20 or cost_clp <= 150000:
+                            stats["filtered"] += 1
+                            continue
+
+                        # --- Cálculo de Precio de Venta ---
+                        # Fórmula: Costo / (1 - Margen)
+                        sale_price = round(cost_clp / (1 - self.margin_percentage))
+
+                        # --- Gestión de Categorías Jerárquicas ---
+                        category_id = 0
+                        if col_cat and col_subcat:
+                            parent_id = self.get_or_create_category(row[col_cat])
+                            category_id = self.get_or_create_category(row[col_subcat], parent_id=parent_id)
+
+                        # --- Preparación de Datos ---
                         product_data = {
-                            "name": str(row[name_col]),
+                            "name": str(row[col_name]),
                             "type": "simple",
-                            "regular_price": str(precio_clp),
+                            "regular_price": str(sale_price),
                             "sku": sku,
                             "manage_stock": True,
                             "stock_quantity": stock,
-                            "status": "publish"
+                            "status": "publish",
+                            "categories": [{"id": category_id}] if category_id > 0 else []
                         }
-                        
-                        if id_cat_final > 0:
-                            product_data["categories"] = [{"id": id_cat_final}]
-                        
+
+                        # --- Sincronización ---
                         existing = self.find_product_by_sku(sku)
+                        
                         if existing:
-                            # Update (No tocamos imágenes en update por velocidad)
-                            res = self.woocommerce_request("put", f"products/{existing['id']}", data={
-                                "regular_price": str(precio_clp),
-                                "stock_quantity": stock
-                            })
-                            if res: stats["updates"] += 1
+                            # Actualización (Solo precio y stock para velocidad)
+                            payload = {
+                                "regular_price": str(sale_price),
+                                "stock_quantity": stock,
+                                "stock_status": "instock" if stock > 0 else "outofstock"
+                            }
+                            res = self.woocommerce_request("put", f"products/{existing['id']}", data=payload)
+                            if res:
+                                stats["updates"] += 1
+                                print(f"   🔄 SKU {sku}: Actualizado (${sale_price} CLP, Stock: {stock})")
                         else:
-                            # Create (Agregar imagen si existe match en el mapa)
+                            # Creación (Con imagen del mapa JSON)
                             if sku in image_map:
                                 product_data["images"] = [{"src": image_map[sku]}]
-                                print(f"    🖼️ Imagen vinculada para nuevo producto: {sku}")
-                                
+                                print(f"   🖼️ SKU {sku}: Imagen vinculada.")
+                            
                             res = self.woocommerce_request("post", "products", data=product_data)
-                            if res: stats["creations"] += 1
-                        
-                        stats["total_processed"] += 1
-                        print(f"   ✅ SKU {sku} sincronizado. (${precio_clp} CLP, Stock: {stock})")
-                        time.sleep(2) # Respetar el límite de la API
-                        
-                    except Exception as e:
-                        print(f"   ⚠️ Error en SKU {sku}: {e}")
-                        stats["errors"] += 1
-                        
-            except Exception as e:
-                print(f"❌ Error al procesar archivo {file_path}: {e}")
-                
-        return stats
+                            if res:
+                                stats["creations"] += 1
+                                print(f"   ✨ SKU {sku}: Creado (${sale_price} CLP, Stock: {stock})")
 
-import re
+                        stats["total_processed"] += 1
+                        time.sleep(2)  # Pausa de estabilidad
+
+                    except Exception as e:
+                        print(f"   ❌ Error procesando SKU {sku}: {e}")
+                        stats["errors"] += 1
+
+            except Exception as e:
+                print(f"❌ Error crítico leyendo archivo {file_path}: {e}")
+
+        return stats
