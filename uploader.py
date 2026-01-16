@@ -146,12 +146,6 @@ class WooSync:
                             nums = re.findall(r'\d+', stock_text)
                             stock = int(nums[0]) if nums else 0
 
-                        # --- Filtros de Negocio ---
-                        # Requisito: Stock >= 20 y Costo CLP > 150,000
-                        if stock < 20 or cost_clp <= 150000:
-                            stats["filtered"] += 1
-                            continue
-
                         # --- Cálculo de Precio de Venta ---
                         # Fórmula: Costo / (1 - Margen)
                         sale_price = round(cost_clp / (1 - self.margin_percentage))
