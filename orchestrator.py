@@ -15,34 +15,46 @@ def main():
     print("\n--- FASE 1: EXTRACCIÓN ---")
     results = scraper.run()
     
-    if not results or not results["downloaded_files"]:
-        print("❌ Error: No se descargaron archivos. Abortando.")
+    # Verificaciones de Extracción
+    if not results or not results.get("downloaded_files"):
+        print("❌ Error Crítico: No se descargaron archivos CSV. Abortando proceso.")
         return
 
-    print(f"\n✅ Extracción completada.")
-    print(f"💵 Dólar: {results['dollar_value']}")
-    print(f"📂 Archivos: {len(results['downloaded_files'])}")
-    print(f"🖼️ Imágenes recolectadas: {len(results['image_map'])}")
+    # Verificar mapa de imágenes
+    image_map_path = os.path.join(scraper.download_dir, "mapa_imagenes.json")
+    if not os.path.exists(image_map_path):
+        print("⚠️ Advertencia: No se encontró 'mapa_imagenes.json'. La carga procederá sin fotos nuevas.")
+    else:
+        print(f"✅ Mapa de imágenes listo: {len(results.get('image_map', {}))} productos mapeados.")
+
+    print(f"✅ Extracción completada.")
+    print(f"💵 Valor Dólar: ${results['dollar_value']}")
+    print(f"📂 Archivos CSV listos: {len(results['downloaded_files'])}")
 
     # 2. CARGA (Uploader)
-    print("\n--- FASE 2: CARGA ---")
+    print("\n--- FASE 2: CARGA (WooCommerce) ---")
     sync = WooSync(WC_URL, WC_CONSUMER_KEY, WC_CONSUMER_SECRET)
     
-    final_stats = sync.process_files(
-        results["downloaded_files"], 
-        results["dollar_value"]
-    )
+    try:
+        final_stats = sync.process_files(
+            results["downloaded_files"], 
+            results["dollar_value"],
+            image_map_path=image_map_path if os.path.exists(image_map_path) else None
+        )
 
-    # 3. REPORTE FINAL
-    print("\n" + "="*60)
-    print("📊 REPORTE DE SINCRONIZACIÓN")
-    print("="*60)
-    print(f"Total Procesados: {final_stats['total_processed']}")
-    print(f"Creados:          {final_stats['creations']}")
-    print(f"Actualizados:     {final_stats['updates']}")
-    print(f"Errores:          {final_stats['errors']}")
-    print("="*60)
-    print("✨ Proceso terminado.")
+        # 3. REPORTE FINAL
+        print("\n" + "="*60)
+        print("📊 REPORTE DE SINCRONIZACIÓN")
+        print("="*60)
+        print(f"Total Procesados: {final_stats['total_processed']}")
+        print(f"Nuevos Creados:   {final_stats['creations']}")
+        print(f"Actualizados:     {final_stats['updates']}")
+        print(f"Errores:          {final_stats['errors']}")
+        print("="*60)
+        print("✨ Proceso terminado exitosamente.")
+        
+    except Exception as e:
+        print(f"❌ Error durante la fase de carga: {e}")
 
 if __name__ == "__main__":
     main()
