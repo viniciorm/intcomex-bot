@@ -30,8 +30,7 @@ def main():
     
     final_stats = sync.process_files(
         results["downloaded_files"], 
-        results["dollar_value"], 
-        results["image_map"]
+        results["dollar_value"]
     )
 
     # 3. REPORTE FINAL

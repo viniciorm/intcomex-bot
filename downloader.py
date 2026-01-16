@@ -1,7 +1,8 @@
-# downloader.py
 import os
 import time
 import re
+import json
+import glob
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -159,6 +160,8 @@ class IntcomexScraper:
                     # Identificar el archivo más reciente en descargas
                     time.sleep(2)
                     files = glob.glob(os.path.join(self.download_dir, "*.csv"))
+                    # Filtrar para no tomar el mapa_imagenes.json si existe
+                    files = [f for f in files if not f.endswith("mapa_imagenes.json")]
                     if files:
                         latest_file = max(files, key=os.path.getctime)
                         # Renombrar para mayor claridad
@@ -167,6 +170,14 @@ class IntcomexScraper:
                         os.rename(latest_file, new_path)
                         downloaded_files.append(new_path)
                         print(f"✅ Archivo guardado: {new_path}")
+            
+            print(f"✅ Descarga completada. {len(downloaded_files)} archivos obtenidos.")
+            
+            # Guardar mapa de imágenes en JSON
+            map_path = os.path.join(self.download_dir, "mapa_imagenes.json")
+            with open(map_path, 'w', encoding='utf-8') as f:
+                json.dump(self.image_map, f, indent=4)
+            print(f"📊 Mapa de imágenes guardado en: {map_path}")
             
             return {
                 "dollar_value": dollar_value,
@@ -177,7 +188,6 @@ class IntcomexScraper:
             if self.driver:
                 self.driver.quit()
 
-import glob
 if __name__ == "__main__":
     scraper = IntcomexScraper()
     # Para pruebas rápidas:
