@@ -18,11 +18,11 @@ DOWNLOAD_DIR = os.path.join(os.getcwd(), "downloads")
 STATE_FILE = "estado_productos.json"
 
 URLS = {
-    "Notebooks": "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.notebook?r=True",
-    "Monitores": "https://store.intcomex.com/es-XCL/Products/ByCategory/mnt.monitor?r=True",
-    "Desktop": "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.desktop?r=True",
+    # "Notebooks": "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.notebook?r=True",
+    # "Monitores": "https://store.intcomex.com/es-XCL/Products/ByCategory/mnt.monitor?r=True",
+    # "Desktop": "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.desktop?r=True",
     "Tablets": "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.tablet?r=True",
-    "All_in_One": "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.allone?r=True"
+    # "All_in_One": "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.allone?r=True"
 }
 
 INVALID_PATTERNS = ["no_image", "sin_imagen", "placeholder", "default", "coming-soon", "not_available", "noimage"]
@@ -65,32 +65,36 @@ class IntcomexScraper:
             print(f"⚠️ Error al guardar estado: {e}")
 
     def start_browser(self):
-        print("🌐 Iniciando navegador...")
+        print("Starting browser...")
         self.driver = Chrome(service=Service(ChromeDriverManager().install()), options=self.options)
         self.driver.maximize_window()
 
     def login(self):
-        print(f"🔑 Navegando a login: {LOGIN_URL}")
+        print(f"Navigating to login: {LOGIN_URL}")
         self.driver.get(LOGIN_URL)
-        print("🔍 Por favor, realiza el login manual en la ventana de Chrome.")
-        print("Esperando a que el login sea exitoso...")
+        print("Please perform manual login in the Chrome window.")
+        print("Waiting for login success...")
         
         wait = WebDriverWait(self.driver, 300) # 5 minutos para login manual
         wait.until(lambda d: "Login" not in d.current_url and "login" not in d.current_url.lower())
-        print("✅ Login detectado exitosamente.")
+        print("Login detected successfully.")
 
     def get_dollar_value(self):
-        print("💵 Extrayendo valor del dólar...")
+        print("Extracting dollar value...")
         try:
-            element = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.ID, "lblExchangeRate"))
+            element = WebDriverWait(self.driver, 15).until(
+                EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'US$1 =')]"))
             )
             text = element.text
-            valor = float(re.sub(r'[^\d.]', '', text.replace(',', '.')))
-            print(f"✅ Valor del dólar encontrado: ${valor}")
-            return valor
+            print(f"      Text found: '{text}'")
+            nums = re.findall(r'[\d.,]+', text.split('=')[-1])
+            if nums:
+                valor = float(nums[0].replace('.', '').replace(',', '.'))
+                print(f"Dollar value found: ${valor}")
+                return valor
+            return 810.0
         except Exception as e:
-            print(f"⚠️ No se pudo obtener el dólar automáticamente: {e}. Usando valor por defecto 810.")
+            print(f"Could not get dollar automatically: {e}. Using default 810.")
             return 810.0
 
     def is_valid_image(self, url):
@@ -102,85 +106,117 @@ class IntcomexScraper:
         return True
 
     def harvest_images_and_pagination(self, category_name):
-        print(f"📸 Iniciando recolección inteligente para {category_name}...")
+        print(f"Starting intelligent harvest for {category_name}...")
         page_count = 1
         max_pages = 20
         today = str(date.today())
         
         while page_count <= max_pages:
-            print(f"   📄 Escaneando página {page_count}...")
-            time.sleep(3) # Esperar carga de la grilla
+            print(f"   Scanning page {page_count}...")
+            time.sleep(7) # More wait for grid load
             
-            # Obtener contenedores de productos (grilla de 30)
-            items = self.driver.find_elements(By.CSS_SELECTOR, ".product-item, .product-list-item, div[data-sku]")
+            items = self.driver.find_elements(By.CSS_SELECTOR, ".product-list-item, .item-box, div.product-item, .product-container")
             
             total_items = len(items)
+            print(f"      Cards found: {total_items}")
+            
+            if total_items == 0:
+                print("      No products found. Retrying with longer wait...")
+                time.sleep(10)
+                items = self.driver.find_elements(By.CSS_SELECTOR, ".product-list-item, .item-box, div.product-item, .product-container")
+                total_items = len(items)
+
             known_with_image = 0
             
             for item in items:
                 try:
-                    sku = item.get_attribute("data-sku") or item.find_element(By.CSS_SELECTOR, ".sku, [class*='sku']").text.strip()
+                    sku = None
+                    # Try getting SKU from data attribute first
+                    sku = item.get_attribute("data-sku")
+                    
+                    if not sku:
+                        try:
+                            # Try finding element containing "SKU:" and cleaning it
+                            sku_elements = item.find_elements(By.XPATH, ".//*[contains(text(), 'SKU:')]")
+                            if sku_elements:
+                                sku_text = sku_elements[0].text
+                                sku = sku_text.split("SKU:")[-1].strip()
+                        except:
+                            pass
+                    
+                    if not sku:
+                        try:
+                            sku = item.find_element(By.CSS_SELECTOR, ".sku, [class*='sku']").text.strip()
+                        except:
+                            continue
+                    
                     if not sku: continue
                     
-                    # Verificar si ya lo conocemos y tiene imagen
+                    # Check state
                     if sku in self.product_state and self.product_state[sku].get("tiene_imagen"):
-                        known_with_image += 1
-                        self.product_state[sku]["ultima_vista"] = today
-                        # Si ya tiene imagen, no necesitamos extraer el src de nuevo, 
-                        # pero si queremos que esté en el image_map para el uploader en esta sesión,
-                        # necesitamos tener una URL guardada en el estado también (opcional pero recomendado)
-                        # Por ahora el requisito dice: "actualiza la ultima_vista sin volver a procesar la imagen"
+                        cached_url = self.product_state[sku].get("url")
+                        if cached_url:
+                            known_with_image += 1
+                            self.product_state[sku]["ultima_vista"] = today
+                            self.image_map[sku] = cached_url
+                            continue
+                    
+                    # Identify Image
+                    img_url = None
+                    try:
+                        img_element = item.find_element(By.CSS_SELECTOR, "img")
+                        img_url = img_element.get_attribute("data-src") or \
+                                  img_element.get_attribute("data-original") or \
+                                  img_element.get_attribute("src")
+                    except:
                         continue
                     
-                    # Si es nuevo o no tiene imagen, extraer
-                    img_element = item.find_element(By.CSS_SELECTOR, "img")
-                    img_url = img_element.get_attribute("src")
+                    if not img_url: continue
                     
-                    es_valida = self.is_valid_image(img_url)
+                    valid = self.is_valid_image(img_url)
                     
-                    # Actualizar estado
                     self.product_state[sku] = {
-                        "tiene_imagen": es_valida,
+                        "tiene_imagen": valid,
+                        "url": img_url if valid else None,
                         "ultima_vista": today
                     }
                     
-                    if es_valida:
+                    if valid:
                         self.image_map[sku] = img_url
+                        # print(f"      Product {sku}: Image detected.")
                         
-                except:
+                except Exception as e:
                     continue
             
-            # Optimización: Si todos en la página ya tenían imagen, saltar "Siguiente" rápido
-            if total_items > 0 and known_with_image == total_items:
-                print(f"      ⚡ Página conocida (30/30 con imagen). Saltando rápido...")
+            print(f"      Finished: {total_items} items (Known: {known_with_image})")
             
-            # Buscar botón de siguiente página
+            # Simple skip if all known
+            if total_items > 0 and known_with_image == total_items:
+                 print("      Fast skip to next page...")
+
+            # Next page
             try:
-                next_button = self.driver.find_element(By.CSS_SELECTOR, "a.next, .pagination-next, a[title*='Siguiente'], a[title*='Next']")
-                if "disabled" in next_button.get_attribute("class") or not next_button.is_displayed():
-                    print("   🏁 Última página alcanzada.")
+                next_btn = self.driver.find_element(By.CSS_SELECTOR, "a.next, .pagination-next, a[title*='Siguiente'], a[title*='Next']")
+                if "disabled" in next_btn.get_attribute("class") or not next_btn.is_displayed():
                     break
                 
-                # Scroll y click
-                self.driver.execute_script("arguments[0].scrollIntoView();", next_button)
+                self.driver.execute_script("arguments[0].scrollIntoView();", next_btn)
                 time.sleep(1)
-                self.driver.execute_script("arguments[0].click();", next_button)
+                self.driver.execute_script("arguments[0].click();", next_btn)
                 page_count += 1
             except:
-                print("   🏁 No se encontró botón de siguiente página.")
                 break
 
     def download_csv(self, category_name):
-        print(f"📥 Descargando CSV para {category_name}...")
+        print(f"Downloading CSV for {category_name}...")
         try:
-            download_btn = WebDriverWait(self.driver, 10).until(
+            btn = WebDriverWait(self.driver, 15).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, "a.priceListButtom[href*='Csv']"))
             )
-            self.driver.execute_script("arguments[0].click();", download_btn)
-            time.sleep(5)
+            self.driver.execute_script("arguments[0].click();", btn)
+            time.sleep(10) # More time for download
             return True
-        except Exception as e:
-            print(f"❌ Error al descargar CSV for {category_name}: {e}")
+        except:
             return False
 
     def run(self):
@@ -193,29 +229,28 @@ class IntcomexScraper:
             dollar_value = self.get_dollar_value()
             
             for name, url in URLS.items():
-                print(f"\n📂 Procesando Categoría: {name}")
+                print(f"\nProcessing Category: {name}")
                 self.driver.get(url)
                 self.harvest_images_and_pagination(name)
                 if self.download_csv(name):
-                    time.sleep(2)
+                    time.sleep(5)
                     files = glob.glob(os.path.join(self.download_dir, "*.csv"))
                     files = [f for f in files if not f.endswith("mapa_imagenes.json")]
                     if files:
-                        latest_file = max(files, key=os.path.getctime)
-                        new_path = os.path.join(self.download_dir, f"{name}.csv")
-                        if os.path.exists(new_path): os.remove(new_path)
-                        os.rename(latest_file, new_path)
-                        downloaded_files.append(new_path)
-                        print(f"✅ Archivo guardado: {new_path}")
+                        latest = max(files, key=os.path.getctime)
+                        path = os.path.join(self.download_dir, f"{name}.csv")
+                        if os.path.exists(path): os.remove(path)
+                        os.rename(latest, path)
+                        downloaded_files.append(path)
+                        print(f"File saved: {path}")
             
-            print(f"✅ Extracción terminada. {len(downloaded_files)} CSVs obtenidos.")
+            print(f"Extraction finished. {len(downloaded_files)} CSVs obtained.")
             
-            # Guardar mapa de imágenes para el uploader (solo lo extraído en esta sesión)
+            # Save maps
             map_path = os.path.join(self.download_dir, "mapa_imagenes.json")
             with open(map_path, 'w', encoding='utf-8') as f:
                 json.dump(self.image_map, f, indent=4)
             
-            # Guardar estado global persistente
             self._save_state()
             
             return {

@@ -154,13 +154,8 @@ def calculate_sale_price(cost_price):
 
 def extract_stock_number(stock_text):
     """
-    Extrae el número de stock de un texto (ej: "Disponible: 100 unidades").
-    
-    Args:
-        stock_text: Texto con el stock
-    
-    Returns:
-        int: Número de unidades
+    Extrae el número de stock de un texto (ej: "Disponible: 100 unidades" o "Más de 20").
+    Si el texto contiene "más de X", retorna X.
     """
     if stock_text is None:
         return 0
@@ -169,10 +164,17 @@ def extract_stock_number(stock_text):
         return int(stock_text)
         
     try:
+        text = str(stock_text).lower().strip()
+        
         # Buscar el primer número en el texto
-        nums = re.findall(r'\d+', str(stock_text))
+        nums = re.findall(r'\d+', text)
         if nums:
             return int(nums[0])
+            
+        # Si no hay números pero dice algo de disponibilidad
+        if 'disponible' in text or 'en stock' in text:
+            return 1 # Asumir al menos 1 si no hay número pero indica disponibilidad
+            
         return 0
     except:
         return 0
@@ -222,6 +224,50 @@ def init_woocommerce_api():
         timeout=30  # Aumentado a 30 segundos para evitar Timeouts en cargas masivas
     )
 
+# Cache de categorías para evitar llamadas repetidas a la API
+category_cache = {}
+
+def get_or_create_woo_category(wcapi, category_name, parent_id=None):
+    """
+    Busca una categoría en WooCommerce por nombre. Si no existe, la crea.
+    Usa un cache local para optimizar las peticiones.
+    """
+    cache_key = f"{category_name}_{parent_id}"
+    if cache_key in category_cache:
+        return category_cache[cache_key]
+
+    try:
+        # Buscar categoría existente
+        params = {"search": category_name, "per_page": 20}
+        if parent_id:
+            params["parent"] = parent_id
+            
+        response = woocommerce_request(wcapi, "get", "products/categories", params=params)
+        
+        if response and response.status_code == 200:
+            categories = response.json()
+            for cat in categories:
+                # Verificación exacta de nombre (el search de WC es parcial)
+                if cat['name'].lower() == category_name.lower():
+                    category_cache[cache_key] = cat['id']
+                    return cat['id']
+
+        # Si no existe, crearla
+        new_cat_data = {"name": category_name}
+        if parent_id:
+            new_cat_data["parent"] = parent_id
+            
+        create_res = woocommerce_request(wcapi, "post", "products/categories", data=new_cat_data)
+        if create_res and create_res.status_code in [200, 201]:
+            new_id = create_res.json().get('id')
+            print(f"    📁 Categoría creada: {category_name} (ID: {new_id})")
+            category_cache[cache_key] = new_id
+            return new_id
+            
+    except Exception as e:
+        print(f"    ⚠ Error gestionando categoría '{category_name}': {e}")
+        
+    return None
 
 def woocommerce_request(wcapi, method, endpoint, data=None, params=None, max_retries=3):
     """
@@ -279,6 +325,12 @@ def create_product_in_woocommerce(wcapi, product_data):
             "tags": [{"name": "Envío Gratuito"}]
         }
         
+        if product_data.get("categories"):
+            data["categories"] = product_data.get("categories")
+            
+        if product_data.get("short_description"):
+            data["short_description"] = str(product_data.get("short_description"))
+            
         if product_data.get("image_url"):
             data["images"] = [{"src": str(product_data.get("image_url"))}]
             
@@ -299,7 +351,9 @@ def update_product_in_woocommerce(wcapi, product_id, product_data):
         data = {
             "regular_price": str(product_data.get("sale_price", "")),
             "stock_quantity": int(product_data.get("stock", 0)),
-            "stock_status": "instock" if product_data.get("stock", 0) > 0 else "outofstock"
+            "stock_status": "instock" if product_data.get("stock", 0) > 0 else "outofstock",
+            "short_description": str(product_data.get("short_description", "")),
+            "categories": product_data.get("categories", [])
         }
         
         response = woocommerce_request(wcapi, "put", f"products/{product_id}", data=data)
@@ -791,6 +845,9 @@ def sincronizar_csv(archivo_csv, wcapi, category_name, valor_dolar):
             elif c == 'precio': price_col = col
             elif c == 'disponibilidad' or c == 'existencia': stock_col = col
             elif c == 'nombre' or c == 'descripción': desc_col = col
+            elif c == 'atributos': attr_col = col
+            elif c == 'categoría': cat_col = col
+            elif c == 'subcategoría': subcat_col = col
 
         if not sku_col or not price_col:
             # Fallback a búsqueda parcial si la exacta falla
@@ -800,6 +857,9 @@ def sincronizar_csv(archivo_csv, wcapi, category_name, valor_dolar):
                 elif 'precio' in c: price_col = col
                 elif 'disponibil' in c: stock_col = col
                 elif 'nombre' in c: desc_col = col
+                elif 'atrib' in c: attr_col = col
+                elif 'categor' in c and 'sub' not in c: cat_col = col
+                elif 'subcategor' in c: subcat_col = col
         
         image_col = None # No hay columna de imagen en este CSV
         
@@ -808,6 +868,9 @@ def sincronizar_csv(archivo_csv, wcapi, category_name, valor_dolar):
         print(f"     - Precio: '{price_col}'")
         print(f"     - Stock: '{stock_col}'")
         print(f"     - Nombre: '{desc_col}'")
+        print(f"     - Atributos: '{attr_col}'")
+        print(f"     - Categoría: '{cat_col}'")
+        print(f"     - Subcategoría: '{subcat_col}'")
         
         if not sku_col or not price_col:
             raise Exception(f"Columnas obligatorias no encontradas: SKU={sku_col}, Precio={price_col}")
@@ -825,6 +888,9 @@ def sincronizar_csv(archivo_csv, wcapi, category_name, valor_dolar):
                     stock = extract_stock_number(row[stock_col])
                 
                 description = str(row[desc_col]) if desc_col and pd.notna(row[desc_col]) else "Sin descripción"
+                short_description = str(row[attr_col]) if attr_col and pd.notna(row[attr_col]) else ""
+                categoria_text = str(row[cat_col]) if cat_col and pd.notna(row[cat_col]) else None
+                subcat_text = str(row[subcat_col]) if subcat_col and pd.notna(row[subcat_col]) else None
                 image_url = str(row[image_col]) if image_col and pd.notna(row[image_col]) else None
                 
                 if not sku or pd.isna(sku):
@@ -843,20 +909,9 @@ def sincronizar_csv(archivo_csv, wcapi, category_name, valor_dolar):
                         print(f"    ⚠ Error en precio USD: {description[:50]}... - Precio inválido: {price_text}")
                     continue
                 
-                # FILTRADO: Stock > 50 y Precio Costo CLP > 150000
+                # El usuario solicitó eliminar los filtros de stock y precio costo
+                # Se procesan todos los productos que tengan un precio válido
                 precio_costo_clp = precio_usd * valor_dolar
-                
-                if stock <= MIN_STOCK:
-                    stats["filtrados"] += 1
-                    if idx < 5:
-                        print(f"    ⊘ Filtrado (stock insuficiente): {description[:50]}... - Stock: {stock} (Min: {MIN_STOCK})")
-                    continue
-                
-                if precio_costo_clp < MIN_PRICE_COST:
-                    stats["filtrados"] += 1
-                    if idx < 5:
-                        print(f"    ⊘ Filtrado (precio bajo): {description[:50]}... - Costo CLP: ${precio_costo_clp:,.0f} (Min: {MIN_PRICE_COST})")
-                    continue
                 
                 # Convertir USD a CLP y aplicar margen del 20%
                 # Fórmula: Precio_Final_CLP = (Precio_CSV_USD * valor_dolar) / (1 - 0.20)
@@ -874,10 +929,23 @@ def sincronizar_csv(archivo_csv, wcapi, category_name, valor_dolar):
                         print(f"    ⚠ Error: Precio de venta inválido después de cálculo (USD: {precio_usd}, Dólar: {valor_dolar})")
                     continue
                 
+                # Procesar categorías de WooCommerce
+                categories_list = []
+                if categoria_text:
+                    cat_id = get_or_create_woo_category(wcapi, categoria_text)
+                    if cat_id:
+                        categories_list.append({"id": cat_id})
+                        if subcat_text:
+                            sub_id = get_or_create_woo_category(wcapi, subcat_text, parent_id=cat_id)
+                            if sub_id:
+                                categories_list.append({"id": sub_id})
+                
                 # Preparar datos del producto
                 product_data = {
                     "title": description,
                     "description": description,
+                    "short_description": short_description,
+                    "categories": categories_list,
                     "sku": sku,
                     "cost_price": precio_costo_clp,  # Precio costo en CLP
                     "sale_price": precio_venta_clp,  # Precio venta en CLP (con margen aplicado)

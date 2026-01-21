@@ -39,14 +39,14 @@ class WooSync:
                 if response.status_code in [200, 201]:
                     return response
                 else:
-                    print(f"    ⚠️ Error API (HTTP {response.status_code}): {response.text[:200]}")
+                    print(f"    Error API (HTTP {response.status_code}): {response.text[:200]}")
             except Exception as e:
                 if attempt < max_retries - 1:
                     wait = (attempt + 1) * 5
-                    print(f"    ⚠️ Error de conexión ({e}). Reintentando en {wait}s ({attempt+1}/{max_retries})...")
+                    print(f"    Error de conexion ({e}). Reintentando en {wait}s ({attempt+1}/{max_retries})...")
                     time.sleep(wait)
                 else:
-                    print(f"    ❌ Fallo definitivo tras {max_retries} intentos.")
+                    print(f"    Fallo definitivo tras {max_retries} intentos.")
                     return None
         return None
 
@@ -69,7 +69,7 @@ class WooSync:
                     return cat['id']
                     
         # Crear si no existe
-        print(f"    📁 Creando categoría: {name} (Padre ID: {parent_id})")
+        print(f"    Creando categoria: {name} (Padre ID: {parent_id})")
         data = {"name": name, "parent": parent_id}
         response = self.woocommerce_request("post", "products/categories", data=data)
         if response:
@@ -97,13 +97,13 @@ class WooSync:
             try:
                 with open(image_map_path, 'r', encoding='utf-8') as f:
                     image_map = json.load(f)
-                print(f"🖼️ Mapa de imágenes cargado: {len(image_map)} productos.")
+                print(f"Mapa de imagenes cargado: {len(image_map)} productos.")
             except Exception as e:
-                print(f"⚠️ No se pudo cargar el mapa de imágenes: {e}")
+                print(f"No se pudo cargar el mapa de imagenes: {e}")
 
         # 2. Iterar sobre archivos
         for file_path in file_list:
-            print(f"\n📖 Procesando: {os.path.basename(file_path)}")
+            print(f"\nProcesando: {os.path.basename(file_path)}")
             
             try:
                 # Lectura de CSV según requisitos (UTF-16, Tab, Header=2)
@@ -118,13 +118,19 @@ class WooSync:
                     engine='python'
                 )
                 
-                # Identificar columnas dinámicamente por nombre
-                col_sku = next((c for c in df.columns if 'sku' in c.lower()), None)
-                col_name = next((c for c in df.columns if 'nombre' in c.lower()), None)
-                col_price = next((c for c in df.columns if 'precio' in c.lower()), None)
-                col_stock = next((c for c in df.columns if 'disponibilidad' in c.lower()), None)
-                col_cat = next((c for c in df.columns if 'Categoría' == c or 'Categoria' == c), None)
-                col_subcat = next((c for c in df.columns if 'Subcategoría' == c or 'Subcategoria' == c), None)
+                # Normalización flexible de nombres de columnas
+                df.columns = [c.lower().strip() for c in df.columns]
+                
+                # Identificar columnas por nombres normalizados
+                col_sku = next((c for c in df.columns if 'sku' in c), None)
+                col_name = next((c for c in df.columns if 'nombre' in c), None)
+                col_price = next((c for c in df.columns if 'precio' in c), None)
+                col_stock = next((c for c in df.columns if 'disponibilidad' in c or 'existencia' in c), None)
+                col_cat = next((c for c in df.columns if 'categoría' in c or 'categoria' in c), None)
+                col_subcat = next((c for c in df.columns if 'subcategoría' in c or 'subcategoria' in c), None)
+
+                if len(df) > 0 and not col_sku:
+                    print(f"DEBUG: Columnas reales encontradas: {df.columns.tolist()}")
 
                 for _, row in df.iterrows():
                     sku = str(row[col_sku]).strip() if col_sku else None
@@ -181,26 +187,26 @@ class WooSync:
                             res = self.woocommerce_request("put", f"products/{existing['id']}", data=payload)
                             if res:
                                 stats["updates"] += 1
-                                print(f"   🔄 SKU {sku}: Actualizado (${sale_price} CLP, Stock: {stock})")
+                                print(f"   SKU {sku}: Actualizado (${sale_price} CLP, Stock: {stock})")
                         else:
                             # Creación (Con imagen del mapa JSON)
                             if sku in image_map:
                                 product_data["images"] = [{"src": image_map[sku]}]
-                                print(f"   🖼️ SKU {sku}: Imagen vinculada.")
+                                print(f"   SKU {sku}: Imagen vinculada.")
                             
                             res = self.woocommerce_request("post", "products", data=product_data)
                             if res:
                                 stats["creations"] += 1
-                                print(f"   ✨ SKU {sku}: Creado (${sale_price} CLP, Stock: {stock})")
+                                print(f"   SKU {sku}: Creado (${sale_price} CLP, Stock: {stock})")
 
                         stats["total_processed"] += 1
                         time.sleep(2)  # Pausa de estabilidad
 
                     except Exception as e:
-                        print(f"   ❌ Error procesando SKU {sku}: {e}")
+                        print(f"   Error procesando SKU {sku}: {e}")
                         stats["errors"] += 1
 
             except Exception as e:
-                print(f"❌ Error crítico leyendo archivo {file_path}: {e}")
+                print(f"Error critico leyendo archivo {file_path}: {e}")
 
         return stats
