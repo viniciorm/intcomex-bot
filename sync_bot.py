@@ -16,6 +16,10 @@ import logging
 import glob
 import io
 from pathlib import Path
+from datetime import datetime
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from webdriver_manager.chrome import ChromeDriverManager
 
 # Importar credenciales desde archivo externo
@@ -25,7 +29,13 @@ try:
         INTCOMEX_PASSWORD,
         WC_URL,
         WC_CONSUMER_KEY,
-        WC_CONSUMER_SECRET
+        WC_CONSUMER_SECRET,
+        SMTP_SERVER,
+        SMTP_PORT,
+        SMTP_USER,
+        SMTP_PASS,
+        SMTP_RECEIVER,
+        SMTP_CC
     )
 except ImportError:
     print("ERROR: No se encontró el archivo 'credentials.py'")
@@ -39,9 +49,9 @@ PASSWORD = INTCOMEX_PASSWORD
 
 # Diccionario de categorías con URLs
 URLS = {
-    "Notebooks": "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.notebook?r=True",
-    # "Monitores_TV": "https://store.intcomex.com/es-XCL/Products/ByCategory/mnt.tv?r=True",
+    # "Notebooks": "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.notebook?r=True",
     # "Monitores": "https://store.intcomex.com/es-XCL/Products/ByCategory/mnt.monitor?r=True",
+    "Monitores_TV": "https://store.intcomex.com/es-XCL/Products/ByCategory/mnt.tv?r=True",
     # "Desktop": "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.desktop?r=True",
     # "Tablets": "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.tablet?r=True",
     # "Impresoras_Inkjet": "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.inkjet?r=True",
@@ -762,234 +772,269 @@ def obtener_dolar_web(driver):
         return valor_dolar_default
 
 
+
+
+def enviar_reporte(descargas_exitosas, errores_descarga, total_stats):
+    """
+    Envía un reporte por correo electrónico con el resumen del proceso.
+    """
+    print("\n📧 Enviando reporte por correo...")
+    
+    try:
+        fecha_actual = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        fecha_asunto = datetime.now().strftime("%d/%m/%Y")
+        
+        msg = MIMEMultipart()
+        msg['From'] = SMTP_USER
+        msg['To'] = SMTP_RECEIVER
+        msg['Cc'] = SMTP_CC
+        msg['Subject'] = f"🤖 Reporte Automático: Sincronización Intcomex [{fecha_asunto}]"
+        
+        # Lista de todos los destinatarios para smtplib
+        destinatarios = [SMTP_RECEIVER]
+        if SMTP_CC:
+            destinatarios.append(SMTP_CC)
+        
+        # Construir cuerpo del mensaje
+        cuerpo = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+            <h2 style="color: #2c3e50;">Resumen de Sincronización - {fecha_actual}</h2>
+            <hr>
+            
+            <h3 style="color: #2980b9;">📥 Fase de Descarga</h3>
+            <ul>
+                <li><b>✅ Exitosas:</b> {', '.join(descargas_exitosas.keys()) if descargas_exitosas else 'Ninguna'}</li>
+                <li><b>❌ Fallidas (tras reintentos):</b> <span style="color: #c0392b;">{', '.join(errores_descarga) if errores_descarga else 'Ninguna'}</span></li>
+            </ul>
+            
+            <h3 style="color: #27ae60;">📦 Resumen WooCommerce</h3>
+            <table border="0" cellpadding="5">
+                <tr><td><b>Total procesados:</b></td><td>{total_stats['productos_procesados']}</td></tr>
+                <tr><td><b>Creados:</b></td><td style="color: #27ae60;">{total_stats['productos_creados']}</td></tr>
+                <tr><td><b>Actualizados:</b></td><td style="color: #2980b9;">{total_stats['productos_actualizados']}</td></tr>
+                <tr><td><b>Errores:</b></td><td style="color: #c0392b;">{total_stats['errores']}</td></tr>
+            </table>
+            
+            <br>
+            <p style="font-size: 0.9em; color: #7f8c8d;">Este es un mensaje automático generado por Intcomex Bot.</p>
+        </body>
+        </html>
+        """
+        
+        msg.attach(MIMEText(cuerpo, 'html'))
+        
+        # Conexión Segura SSL
+        with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as server:
+            server.login(SMTP_USER, SMTP_PASS)
+            server.sendmail(SMTP_USER, destinatarios, msg.as_string())
+            
+        print(f"✓ Reporte enviado exitosamente a: {SMTP_RECEIVER} (CC: {SMTP_CC})")
+        
+    except Exception as e:
+        print(f"❌ Error al enviar el correo: {e}")
+
+
 def sincronizar_csv(archivo_csv, wcapi, category_name, valor_dolar):
     """
     Procesa un CSV descargado y sincroniza productos con WooCommerce.
-    
-    ESTRUCTURA DEL CSV:
-    - Fila 1: Información general (ignorada)
-    - Fila 2: Valor del dólar (ya obtenido del sitio web)
-    - Fila 3: Encabezados de columnas (header=2)
-    - Fila 4+: Datos de productos
-    
-    Args:
-        archivo_csv: Ruta al archivo CSV
-        wcapi: Objeto API de WooCommerce
-        category_name: Nombre de la categoría
-        valor_dolar: Valor del dólar obtenido del sitio web
-    
-    Returns:
-        dict: Estadísticas de procesamiento
     """
-    stats = {
-        "procesados": 0,
-        "creados": 0,
-        "actualizados": 0,
-        "filtrados": 0,
-        "errores": 0
-    }
+    stats = {"procesados": 0, "creados": 0, "actualizados": 0, "filtrados": 0, "errores": 0}
+    print(f"  💵 Usando valor del dólar: ${valor_dolar:,.2f} CLP")
     
+    # Lectura ULTRA robusta usando StringIO para evitar errores de tokenización
     try:
-        print(f"  📖 Procesando CSV: {archivo_csv}")
-        print(f"  💵 Usando valor del dólar: ${valor_dolar:,.2f} CLP")
+        with open(archivo_csv, 'r', encoding='utf-16') as f:
+            lines = f.readlines()
         
-        # Lectura ULTRA robusta usando StringIO para evitar errores de tokenización
-        try:
-            with open(archivo_csv, 'r', encoding='utf-16') as f:
-                lines = f.readlines()
-            
-            # Buscar la cabecera dinámicamente
-            header_idx = -1
-            for i, line in enumerate(lines[:20]): # Revisar las primeras 20 líneas
-                l = line.lower()
-                if 'sku' in l or 'categoría' in l or 'nombre' in l:
-                    header_idx = i
-                    break
-            
-            if header_idx == -1:
-                raise Exception("No se encontró la fila de cabecera en el CSV")
+        # Buscar la cabecera dinámicamente
+        header_idx = -1
+        for i, line in enumerate(lines[:20]): # Revisar las primeras 20 líneas
+            l = line.lower()
+            if 'sku' in l or 'categoría' in l or 'nombre' in l:
+                header_idx = i
+                break
+        
+        if header_idx == -1:
+            raise Exception("No se encontró la fila de cabecera en el CSV")
 
-            print(f"  ✓ Cabecera detectada en la fila {header_idx}")
-            
-            # Crear DataFrame desde el bloque de datos que empieza en la cabecera
-            csv_content = "".join(lines[header_idx:])
-            df = pd.read_csv(
-                io.StringIO(csv_content),
-                sep='\t',
-                decimal=',',
-                on_bad_lines='skip',
-                engine='python'
-            )
-            print(f"  ✓ CSV cargado con éxito. Filas: {len(df)}")
-            
-        except Exception as e:
-            print(f"  ❌ Fallo crítico en lectura de CSV: {e}")
-            return stats
-
-        if df.empty:
-            print("  ⚠ El archivo está vacío.")
-            return stats
+        print(f"  ✓ Cabecera detectada en la fila {header_idx}")
         
-        # Filtrar filas que sean completamente nulas o que no tengan SKU
-        df = df.dropna(subset=[df.columns[0]]) # Asumimos que la primera columna debe tener datos
-        
-        # Mapeo DINÁMICO para mayor robustez
-        sku_col = None
-        price_col = None
-        stock_col = None
-        desc_col = None
-        
-        for col in df.columns:
-            c = str(col).strip().lower()
-            if c == 'sku': sku_col = col
-            elif c == 'precio': price_col = col
-            elif c == 'disponibilidad' or c == 'existencia': stock_col = col
-            elif c == 'nombre' or c == 'descripción': desc_col = col
-            elif c == 'atributos': attr_col = col
-            elif c == 'categoría': cat_col = col
-            elif c == 'subcategoría': subcat_col = col
-
-        if not sku_col or not price_col:
-            # Fallback a búsqueda parcial si la exacta falla
-            for col in df.columns:
-                c = str(col).strip().lower()
-                if 'sku' in c: sku_col = col
-                elif 'precio' in c: price_col = col
-                elif 'disponibil' in c: stock_col = col
-                elif 'nombre' in c: desc_col = col
-                elif 'atrib' in c: attr_col = col
-                elif 'categor' in c and 'sub' not in c: cat_col = col
-                elif 'subcategor' in c: subcat_col = col
-        
-        image_col = None # No hay columna de imagen en este CSV
-        
-        print(f"  📊 Mapeo final:")
-        print(f"     - SKU: '{sku_col}'")
-        print(f"     - Precio: '{price_col}'")
-        print(f"     - Stock: '{stock_col}'")
-        print(f"     - Nombre: '{desc_col}'")
-        print(f"     - Atributos: '{attr_col}'")
-        print(f"     - Categoría: '{cat_col}'")
-        print(f"     - Subcategoría: '{subcat_col}'")
-        
-        if not sku_col or not price_col:
-            raise Exception(f"Columnas obligatorias no encontradas: SKU={sku_col}, Precio={price_col}")
-        
-        # Procesar cada fila
-        for idx, row in df.iterrows():
-            try:
-                # Extraer datos
-                sku = row[sku_col] if sku_col else None
-                price_text = row[price_col] if price_col else None
-                
-                # Extraer stock de la columna "Disponibilidad"
-                stock = 0
-                if stock_col and pd.notna(row[stock_col]):
-                    stock = extract_stock_number(row[stock_col])
-                
-                description = str(row[desc_col]) if desc_col and pd.notna(row[desc_col]) else "Sin descripción"
-                short_description = str(row[attr_col]) if attr_col and pd.notna(row[attr_col]) else ""
-                categoria_text = str(row[cat_col]) if cat_col and pd.notna(row[cat_col]) else None
-                subcat_text = str(row[subcat_col]) if subcat_col and pd.notna(row[subcat_col]) else None
-                image_url = str(row[image_col]) if image_col and pd.notna(row[image_col]) else None
-                
-                if not sku or pd.isna(sku):
-                    continue
-                
-                sku = str(sku).strip()
-                
-                # PASO 3: Calcular Precio Final en CLP
-                # Los precios en el CSV vienen en USD, necesitamos convertirlos a CLP
-                precio_usd = clean_price_to_float(price_text)
-                
-                # Validar que el precio USD sea válido
-                if precio_usd is None or precio_usd <= 0:
-                    stats["errores"] += 1
-                    if idx < 5:  # Mostrar primeros 5 errores para debugging
-                        print(f"    ⚠ Error en precio USD: {description[:50]}... - Precio inválido: {price_text}")
-                    continue
-                
-                # El usuario solicitó eliminar los filtros de stock y precio costo
-                # Se procesan todos los productos que tengan un precio válido
-                precio_costo_clp = precio_usd * valor_dolar
-                
-                # Convertir USD a CLP y aplicar margen del 20%
-                # Fórmula: Precio_Final_CLP = (Precio_CSV_USD * valor_dolar) / (1 - 0.20)
-                precio_costo_clp = precio_usd * valor_dolar
-                precio_venta_clp = precio_costo_clp / (1 - MARGIN_PERCENTAGE)
-                
-                # Redondear a enteros (sin decimales)
-                precio_costo_clp = round(precio_costo_clp)
-                precio_venta_clp = round(precio_venta_clp)
-                
-                # Validar que el precio final sea válido
-                if precio_venta_clp <= 0:
-                    stats["errores"] += 1
-                    if idx < 5:
-                        print(f"    ⚠ Error: Precio de venta inválido después de cálculo (USD: {precio_usd}, Dólar: {valor_dolar})")
-                    continue
-                
-                # Procesar categorías de WooCommerce
-                categories_list = []
-                if categoria_text:
-                    cat_id = get_or_create_woo_category(wcapi, categoria_text)
-                    if cat_id:
-                        categories_list.append({"id": cat_id})
-                        if subcat_text:
-                            sub_id = get_or_create_woo_category(wcapi, subcat_text, parent_id=cat_id)
-                            if sub_id:
-                                categories_list.append({"id": sub_id})
-                
-                # Preparar datos del producto
-                product_data = {
-                    "title": description,
-                    "description": description,
-                    "short_description": short_description,
-                    "categories": categories_list,
-                    "sku": sku,
-                    "cost_price": precio_costo_clp,  # Precio costo en CLP
-                    "sale_price": precio_venta_clp,  # Precio venta en CLP (con margen aplicado)
-                    "precio_usd": precio_usd,  # Precio original en USD
-                    "valor_dolar": valor_dolar,  # Tipo de cambio usado
-                    "stock": stock,
-                    "image_url": image_url
-                }
-                
-                # Buscar si el producto ya existe en WooCommerce
-                existing_product = find_product_by_sku(wcapi, sku)
-                
-                if existing_product:
-                    # Actualizar producto existente
-                    product_id = existing_product["id"]
-                    if update_product_in_woocommerce(wcapi, product_id, product_data):
-                        stats["actualizados"] += 1
-                    else:
-                        stats["errores"] += 1
-                else:
-                    # Crear nuevo producto
-                    if create_product_in_woocommerce(wcapi, product_data):
-                        stats["creados"] += 1
-                    else:
-                        stats["errores"] += 1
-                
-                stats["procesados"] += 1
-                
-                # Mostrar progreso cada 10 productos
-                if stats["procesados"] % 10 == 0:
-                    print(f"    📊 Progreso: {stats['procesados']} procesados, {stats['creados']} creados, {stats['actualizados']} actualizados, {stats['filtrados']} filtrados")
-                
-                time.sleep(1.0)  # Pausa de 1 segundo para evitar saturar el servidor/API
-                
-            except Exception as e:
-                stats["errores"] += 1
-                print(f"  ⚠ Error procesando fila {idx}: {e}")
-                continue
-        
-        return stats
+        # Crear DataFrame desde el bloque de datos que empieza en la cabecera
+        csv_content = "".join(lines[header_idx:])
+        df = pd.read_csv(
+            io.StringIO(csv_content),
+            sep='\t',
+            decimal=',',
+            on_bad_lines='skip',
+            engine='python'
+        )
+        print(f"  ✓ CSV cargado con éxito. Filas: {len(df)}")
         
     except Exception as e:
-        print(f"  ✗ Error al procesar CSV: {e}")
+        print(f"  ❌ Fallo crítico en lectura de CSV: {e}")
         return stats
+
+    if df.empty:
+        print("  ⚠ El archivo está vacío.")
+        return stats
+    
+    # Filtrar filas que sean completamente nulas o que no tengan SKU
+    df = df.dropna(subset=[df.columns[0]]) # Asumimos que la primera columna debe tener datos
+    
+    # Mapeo DINÁMICO para mayor robustez
+    sku_col = None
+    price_col = None
+    stock_col = None
+    desc_col = None
+    
+    for col in df.columns:
+        c = str(col).strip().lower()
+        if c == 'sku': sku_col = col
+        elif c == 'precio': price_col = col
+        elif c == 'disponibilidad' or c == 'existencia': stock_col = col
+        elif c == 'nombre' or c == 'descripción': desc_col = col
+        elif c == 'atributos': attr_col = col
+        elif c == 'categoría': cat_col = col
+        elif c == 'subcategoría': subcat_col = col
+
+    if not sku_col or not price_col:
+        # Fallback a búsqueda parcial si la exacta falla
+        for col in df.columns:
+            c = str(col).strip().lower()
+            if 'sku' in c: sku_col = col
+            elif 'precio' in c: price_col = col
+            elif 'disponibil' in c: stock_col = col
+            elif 'nombre' in c: desc_col = col
+            elif 'atrib' in c: attr_col = col
+            elif 'categor' in c and 'sub' not in c: cat_col = col
+            elif 'subcategor' in c: subcat_col = col
+    
+    image_col = None # No hay columna de imagen en este CSV
+    
+    print(f"  📊 Mapeo final:")
+    print(f"     - SKU: '{sku_col}'")
+    print(f"     - Precio: '{price_col}'")
+    print(f"     - Stock: '{stock_col}'")
+    print(f"     - Nombre: '{desc_col}'")
+    print(f"     - Atributos: '{attr_col}'")
+    print(f"     - Categoría: '{cat_col}'")
+    print(f"     - Subcategoría: '{subcat_col}'")
+    
+    if not sku_col or not price_col:
+        raise Exception(f"Columnas obligatorias no encontradas: SKU={sku_col}, Precio={price_col}")
+    
+    # Procesar cada fila
+    for idx, row in df.iterrows():
+        try:
+            # Extraer datos
+            sku = row[sku_col] if sku_col else None
+            price_text = row[price_col] if price_col else None
+            
+            # Extraer stock de la columna "Disponibilidad"
+            stock = 0
+            if stock_col and pd.notna(row[stock_col]):
+                stock = extract_stock_number(row[stock_col])
+            
+            description = str(row[desc_col]) if desc_col and pd.notna(row[desc_col]) else "Sin descripción"
+            short_description = str(row[attr_col]) if attr_col and pd.notna(row[attr_col]) else ""
+            categoria_text = str(row[cat_col]) if cat_col and pd.notna(row[cat_col]) else None
+            subcat_text = str(row[subcat_col]) if subcat_col and pd.notna(row[subcat_col]) else None
+            image_url = str(row[image_col]) if image_col and pd.notna(row[image_col]) else None
+            
+            if not sku or pd.isna(sku):
+                continue
+            
+            sku = str(sku).strip()
+            
+            # PASO 3: Calcular Precio Final en CLP
+            # Los precios en el CSV vienen en USD, necesitamos convertirlos a CLP
+            precio_usd = clean_price_to_float(price_text)
+            
+            # Validar que el precio USD sea válido
+            if precio_usd is None or precio_usd <= 0:
+                stats["errores"] += 1
+                if idx < 5:  # Mostrar primeros 5 errores para debugging
+                    print(f"    ⚠ Error en precio USD: {description[:50]}... - Precio inválido: {price_text}")
+                continue
+            
+            # El usuario solicitó eliminar los filtros de stock y precio costo
+            # Se procesan todos los productos que tengan un precio válido
+            precio_costo_clp = precio_usd * valor_dolar
+            
+            # Convertir USD a CLP y aplicar margen del 20%
+            # Fórmula: Precio_Final_CLP = (Precio_CSV_USD * valor_dolar) / (1 - 0.20)
+            precio_costo_clp = precio_usd * valor_dolar
+            precio_venta_clp = precio_costo_clp / (1 - MARGIN_PERCENTAGE)
+            
+            # Redondear a enteros (sin decimales)
+            precio_costo_clp = round(precio_costo_clp)
+            precio_venta_clp = round(precio_venta_clp)
+            
+            # Validar que el precio final sea válido
+            if precio_venta_clp <= 0:
+                stats["errores"] += 1
+                if idx < 5:
+                    print(f"    ⚠ Error: Precio de venta inválido después de cálculo (USD: {precio_usd}, Dólar: {valor_dolar})")
+                continue
+            
+            # Procesar categorías de WooCommerce
+            categories_list = []
+            if categoria_text:
+                cat_id = get_or_create_woo_category(wcapi, categoria_text)
+                if cat_id:
+                    categories_list.append({"id": cat_id})
+                    if subcat_text:
+                        sub_id = get_or_create_woo_category(wcapi, subcat_text, parent_id=cat_id)
+                        if sub_id:
+                            categories_list.append({"id": sub_id})
+            
+            # Preparar datos del producto
+            product_data = {
+                "title": description,
+                "description": description,
+                "short_description": short_description,
+                "categories": categories_list,
+                "sku": sku,
+                "cost_price": precio_costo_clp,  # Precio costo en CLP
+                "sale_price": precio_venta_clp,  # Precio venta en CLP (con margen aplicado)
+                "precio_usd": precio_usd,  # Precio original en USD
+                "valor_dolar": valor_dolar,  # Tipo de cambio usado
+                "stock": stock,
+                "image_url": image_url
+            }
+            
+            # Buscar si el producto ya existe en WooCommerce
+            existing_product = find_product_by_sku(wcapi, sku)
+            
+            if existing_product:
+                # Actualizar producto existente
+                product_id = existing_product["id"]
+                if update_product_in_woocommerce(wcapi, product_id, product_data):
+                    stats["actualizados"] += 1
+                else:
+                    stats["errores"] += 1
+            else:
+                # Crear nuevo producto
+                if create_product_in_woocommerce(wcapi, product_data):
+                    stats["creados"] += 1
+                else:
+                    stats["errores"] += 1
+            
+            stats["procesados"] += 1
+            
+            # Mostrar progreso cada 10 productos
+            if stats["procesados"] % 10 == 0:
+                print(f"    📊 Progreso: {stats['procesados']} procesados, {stats['creados']} creados, {stats['actualizados']} actualizados, {stats['filtrados']} filtrados")
+            
+            time.sleep(1.0)  # Pausa de 1 segundo para evitar saturar el servidor/API
+            
+        except Exception as e:
+            stats["errores"] += 1
+            print(f"  ⚠ Error procesando fila {idx}: {e}")
+            continue
+    
+    return stats
 
 
 # --- Ejecución Principal ---
@@ -1050,80 +1095,136 @@ if __name__ == "__main__":
         "errores": 0
     }
     
+    # --- FASE 1: DESCARGAS ---
+    print("\n" + "="*60)
+    print("FASE 1: DESCARGA DE CSVs")
+    print("="*60)
+    
+    categorias_pendientes = list(URLS.keys())
+    descargas_exitosas = {} # category_name -> file_path
+    errores_descarga = []
+    valor_dolar = 970.0 # Valor por defecto
+    
     try:
-        # Paso 1: Login obligatorio
-        print("\n" + "="*60)
-        print("PASO 1: INICIO DE SESIÓN")
-        print("="*60)
+        # 1. Login obligatorio
+        print("\nPASO 1.1: INICIO DE SESIÓN")
         if not login_intcomex(driver, USERNAME, PASSWORD):
             print("✗ El inicio de sesión falló. El bot no puede continuar.")
+            driver.quit()
             exit(1)
         
-        # Paso 2: Obtener valor del dólar del sitio web
-        print("\n" + "="*60)
-        print("PASO 2: OBTENER VALOR DEL DÓLAR")
-        print("="*60)
+        # 2. Obtener valor del dólar
+        print("\nPASO 1.2: OBTENER VALOR DEL DÓLAR")
         valor_dolar = obtener_dolar_web(driver)
-        print(f"✓ Valor del dólar obtenido: ${valor_dolar:,.2f} CLP")
+        print(f"✓ Valor del dólar para esta sesión: ${valor_dolar:,.2f} CLP")
         
-        # Paso 3: Procesar cada categoría
-        print("\n" + "="*60)
-        print("PASO 3: DESCARGAS Y SINCRONIZACIÓN")
-        print("="*60)
-        
-        for category_name, category_url in URLS.items():
+        # 3. Primer buecle de descargas
+        print("\nPASO 1.3: PRIMER INTENTO DE DESCARGAS")
+        for cat_name in categorias_pendientes[:]:
             try:
-                # Descargar CSV de la categoría
-                csv_file = download_category_csv(driver, category_name, category_url)
+                cat_url = URLS[cat_name]
+                csv_file = download_category_csv(driver, cat_name, cat_url)
                 
                 if csv_file and os.path.exists(csv_file):
-                    # Procesar y sincronizar CSV usando el valor del dólar obtenido del sitio web
-                    stats = sincronizar_csv(csv_file, wcapi, category_name, valor_dolar)
-                    
-                    # Acumular estadísticas
-                    total_stats["categorias_procesadas"] += 1
-                    total_stats["productos_procesados"] += stats["procesados"]
-                    total_stats["productos_creados"] += stats["creados"]
-                    total_stats["productos_actualizados"] += stats["actualizados"]
-                    total_stats["productos_filtrados"] += stats["filtrados"]
-                    total_stats["errores"] += stats["errores"]
-                    
-                    print(f"  📊 Resumen {category_name}:")
-                    print(f"     - Procesados: {stats['procesados']}")
-                    print(f"     - Creados: {stats['creados']}")
-                    print(f"     - Actualizados: {stats['actualizados']}")
-                    print(f"     - Filtrados: {stats['filtrados']}")
-                    print(f"     - Errores: {stats['errores']}")
+                    descargas_exitosas[cat_name] = csv_file
+                    categorias_pendientes.remove(cat_name)
+                    print(f"  ✓ {cat_name}: Descarga completa.")
                 else:
-                    total_stats["categorias_fallidas"] += 1
-                    print(f"  ✗ No se pudo descargar CSV para {category_name}")
-                
-                time.sleep(2)  # Pausa entre categorías
-                
+                    print(f"  ⚠ {cat_name}: Falló la descarga.")
+                    errores_descarga.append(cat_name)
             except Exception as e:
-                total_stats["categorias_fallidas"] += 1
-                print(f"  ✗ Error procesando categoría {category_name}: {e}")
-                continue
-        
-        # Resumen final
-        print("\n" + "="*60)
-        print("✅ SINCRONIZACIÓN COMPLETADA")
-        print("="*60)
-        print(f"Categorías procesadas: {total_stats['categorias_procesadas']}")
-        print(f"Categorías fallidas: {total_stats['categorias_fallidas']}")
-        print(f"Productos procesados: {total_stats['productos_procesados']}")
-        print(f"Productos creados: {total_stats['productos_creados']}")
-        print(f"Productos actualizados: {total_stats['productos_actualizados']}")
-        print(f"Productos filtrados: {total_stats['productos_filtrados']}")
-        print(f"Errores: {total_stats['errores']}")
-        print("="*60)
-        
+                print(f"  ⚠ {cat_name}: Error durante descarga: {e}")
+                errores_descarga.append(cat_name)
+            
+            time.sleep(2)
+            
+        # 4. Segunda oportunidad para errores
+        if errores_descarga:
+            print("\nPASO 1.4: SEGUNDA OPORTUNIDAD PARA DOWNLOADS FALLIDOS")
+            pendientes_reintento = errores_descarga.copy()
+            errores_descarga = [] # Limpiar para el reintento
+            
+            for cat_name in pendientes_reintento:
+                try:
+                    print(f"  � Reintentando {cat_name}...")
+                    cat_url = URLS[cat_name]
+                    csv_file = download_category_csv(driver, cat_name, cat_url)
+                    
+                    if csv_file and os.path.exists(csv_file):
+                        descargas_exitosas[cat_name] = csv_file
+                        print(f"  ✓ {cat_name}: Descarga exitosa en segundo intento.")
+                    else:
+                        print(f"  ❌ {cat_name}: Falló nuevamente.")
+                        errores_descarga.append(cat_name)
+                except Exception as e:
+                    print(f"  ❌ {cat_name}: Error en reintento: {e}")
+                    errores_descarga.append(cat_name)
+                
+                time.sleep(2)
+
     except KeyboardInterrupt:
-        print("\n\n⚠ Proceso interrumpido por el usuario.")
+        print("\n\n⚠ Descargas interrumpidas por el usuario.")
     except Exception as e:
-        print(f"\n✗ Error general durante la ejecución: {e}")
-        import traceback
-        traceback.print_exc()
+        print(f"\n✗ Error crítico en Fase de Descargas: {e}")
     finally:
+        print("\n🔒 Cerrando navegador antes de la fase de carga...")
         driver.quit()
-        print("\n🔒 Navegador cerrado. Bot finalizado.")
+        print("✓ Navegador cerrado correctamente.")
+
+    # --- FASE 2: CARGA A WOOCOMMERCE ---
+    if not descargas_exitosas:
+        print("\n⚠ No hay archivos descargados para procesar. Fin del programa.")
+        exit(0)
+
+    print("\n" + "="*60)
+    print("FASE 2: SINCRONIZACIÓN CON WOOCOMMERCE")
+    print("="*60)
+    print(f"Archivos listos para procesar: {len(descargas_exitosas)}")
+
+    # Estadísticas globales de carga
+    total_stats = {
+        "categorias_procesadas": 0,
+        "categorias_fallidas": len(errores_descarga),
+        "productos_procesados": 0,
+        "productos_creados": 0,
+        "productos_actualizados": 0,
+        "productos_filtrados": 0,
+        "errores": 0
+    }
+
+    for cat_name, csv_path in descargas_exitosas.items():
+        try:
+            print(f"\n🚀 Sincronizando categoría: {cat_name}")
+            stats = sincronizar_csv(csv_path, wcapi, cat_name, valor_dolar)
+            
+            # Acumular estadísticas
+            total_stats["categorias_procesadas"] += 1
+            total_stats["productos_procesados"] += stats.get("procesados", 0)
+            total_stats["productos_creados"] += stats.get("creados", 0)
+            total_stats["productos_actualizados"] += stats.get("actualizados", 0)
+            total_stats["productos_filtrados"] += stats.get("filtrados", 0)
+            total_stats["errores"] += stats.get("errores", 0)
+            
+            print(f"  📊 Resumen {cat_name}:")
+            print(f"     - Procesados: {stats.get('procesados', 0)}")
+            print(f"     - Creados: {stats.get('creados', 0)}")
+            print(f"     - Actualizados: {stats.get('actualizados', 0)}")
+            print(f"     - Errores: {stats.get('errores', 0)}")
+            
+        except Exception as e:
+            total_stats["categorias_fallidas"] += 1
+            print(f"  ✗ Error fatal al sincronizar CSV de {cat_name}: {e}")
+
+    # Resumen final
+    print("\n" + "="*60)
+    print("✅ PROCESO DE SINCRONIZACIÓN FINALIZADO")
+    print("="*60)
+    print(f"Categorías exitosas: {total_stats['categorias_procesadas']}")
+    print(f"Categorías fallidas: {total_stats['categorias_fallidas']}")
+    if total_stats["categorias_fallidas"] > 0:
+        print(f"Categorías que fallaron descarga: {', '.join(errores_descarga)}")
+    print(f"Total errores en productos: {total_stats['errores']}")
+    print("="*60)
+
+    # --- ENVIAR REPORTE ---
+    enviar_reporte(descargas_exitosas, errores_descarga, total_stats)
