@@ -22,6 +22,15 @@ El bot utiliza un flujo integrado en `sync_bot.py` enfocado en la resiliencia:
 4.  **Fase de Reporte**:
     *   Envía un correo electrónico detallado con el resumen de la sincronización (productos actualizados, creados, errores y categorías procesadas).
 
+## 🖼️ Bot de Imágenes (Independiente)
+
+Para la descarga física de imágenes, el proyecto incluye `image_bot.py`:
+1.  **Lectura**: Escanea los SKUs de los CSVs descargados.
+2.  **Búsqueda**: Navega de forma pública en Intcomex buscando cada SKU.
+3.  **Descarga**: Baja las imágenes físicamente a la carpeta `product_images/`.
+4.  **Formato**: Nombra los archivos como `SKU_001.jpg`, `SKU_002.jpg`, etc.
+5.  **Registro**: Actualiza `estado_productos.json` con las rutas locales y el estado de descarga.
+
 ## 🚀 Configuración Inicial
 
 ### 1. Instalar Dependencias
@@ -44,6 +53,7 @@ python sync_bot.py
 ```
 
 ### Otras herramientas
+- `image_bot.py`: Bot dedicado a la descarga física de imágenes por SKU.
 - `scraper_intcomex.py`: Versión simplificada para pruebas de extracción.
 - `ver_csv.py`: Utilidad para inspeccionar la estructura de los CSV descargados.
 
@@ -51,8 +61,10 @@ python sync_bot.py
 ```
 intcomex-bot/
 ├── sync_bot.py           # Script principal de producción
+├── image_bot.py          # Bot de descarga de imágenes
 ├── credentials.py        # Credenciales (Ignorado por Git)
 ├── downloads/            # Almacenamiento temporal de CSVs
+├── product_images/       # Repositorio local de imágenes descargadas
 ├── modular_etl_backup/   # Versiones previas de la arquitectura ETL
 └── requirements.txt      # Dependencias
 ```

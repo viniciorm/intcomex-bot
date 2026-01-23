@@ -147,5 +147,8 @@ logs/
 # ============================================
 # Mantener el ejemplo pero ignorar el real
 # credentials.example.py se sube, credentials.py NO
+estado_productos.json
+product_images/
+debug_*.png
 
 
