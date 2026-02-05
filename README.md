@@ -47,15 +47,33 @@ pip install -r requirements.txt
 
 ## 📖 Uso
 
-### Ejecutar la Sincronización Completa
+### 1. Ejecución Consolidada (Orquestador)
+El orquestador maneja el flujo completo (Sync -> Imágenes -> Carga) de forma automática y envía un reporte consolidado.
+
 ```bash
-python sync_bot.py
+# Ejecutar todo el flujo (Sincronización + Imágenes + Carga)
+python main_orchestrator.py all
+
+# Ejecutar solo fases específicas
+python main_orchestrator.py sync    # Solo descarga CSV y actualiza precios/stock
+python main_orchestrator.py images  # Solo busca y descarga imágenes faltantes
+python main_orchestrator.py upload  # Solo sube imágenes nuevas a WooCommerce
 ```
 
-### Otras herramientas
-- `image_bot.py`: Bot dedicado a la descarga física de imágenes por SKU.
-- `scraper_intcomex.py`: Versión simplificada para pruebas de extracción.
-- `ver_csv.py`: Utilidad para inspeccionar la estructura de los CSV descargados.
+### 2. Ejecución de Componentes Individuales
+Si prefieres un control granular o depuración específica, puedes usar los bots por separado:
+
+| Script | Función | Comando |
+| :--- | :--- | :--- |
+| `sync_bot.py` | Sincronización principal de CSV y WooCommerce | `python sync_bot.py` |
+| `image_bot.py` | Descarga de imágenes por SKU desde el portal | `python image_bot.py` |
+| `image_uploader.py` | Sube y vincula imágenes locales a WooCommerce | `python image_uploader.py` |
+| `scraper_intcomex.py`| Extracción de prueba (Scraper simplificado) | `python scraper_intcomex.py` |
+
+### 3. Herramientas de Utilidad
+- `ver_csv.py`: Inspecciona la estructura de los CSV descargados.
+- `debug_wp_auth.py`: Prueba la conexión con la API de WooCommerce.
+- `force_reset_images.py`: Reinicia el estado de las imágenes para re-procesar todo.
 
 ## 📁 Estructura del Proyecto
 ```
