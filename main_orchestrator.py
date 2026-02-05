@@ -11,6 +11,7 @@ from email.mime.multipart import MIMEMultipart
 from sync_bot import run_sync_bot, init_woocommerce_api
 from image_bot import run_image_bot
 from image_uploader import run_image_uploader
+from inventory_cleaner import run_inventory_cleaner
 
 # Importar credenciales
 try:
@@ -115,9 +116,22 @@ def enviar_reporte_consolidado(resumen, error_critico=None):
             </div>
         """
 
+        # Fase D: Cleaner
+        cl = resumen.get("cleaner", {})
+        cuerpo_html += f"""
+            <div class='stat-box'>
+                <h3>Fase D: Gestión de Inventario (Cleaner)</h3>
+                <ul>
+                    <li>Re-activados (Borrador -> Publicado): {cl.get('reactivados', 0)}</li>
+                    <li>Ocultos por Stock Bajo (<= 2): {cl.get('stock_bajo', 0)}</li>
+                    <li>Ocultos por Fuera de Catálogo: {cl.get('fuera_catalogo', 0)}</li>
+                </ul>
+            </div>
+        """
+
         cuerpo_html += f"""
             <p style='font-size: 0.8em; color: #7f8c8d; margin-top: 30px;'>
-                Orquestador Intcomex v2.0 - tupartnerti.cl
+                Orquestador Intcomex v2.1.0 - tupartnerti.cl
             </p>
         </body>
         </html>
@@ -146,7 +160,8 @@ def main():
     resumen = {
         "sync": {"status": "SKIPPED", "stats": {}},
         "imagenes": {"descargadas": 0},
-        "uploader": {"vinculadas": 0}
+        "uploader": {"vinculadas": 0},
+        "cleaner": {"reactivados": 0, "stock_bajo": 0, "fuera_catalogo": 0}
     }
     
     error_global = None
@@ -189,6 +204,12 @@ def main():
                 resumen["uploader"]["vinculadas"] = procesados
             else:
                 print("\n[FASE C] No hay datos ni imágenes pendientes de sincronizar. Saltando.")
+
+        # FASE D: Limpieza de Inventario
+        if mode in ['all', 'clean']:
+            print("\n[FASE D] Iniciando Limpieza de Inventario...")
+            clean_stats = run_inventory_cleaner()
+            resumen["cleaner"] = clean_stats
 
     except Exception as e:
         error_global = str(e)

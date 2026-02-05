@@ -1,4 +1,4 @@
-# 🤖 Bot de Sincronización Intcomex -> WooCommerce
+# 🤖 Bot de Sincronización Intcomex -> WooCommerce `v2.1.0`
 
 Bot de producción diseñado para sincronizar productos desde el catálogo de Intcomex Chile directamente a una tienda WooCommerce mediante API.
 
@@ -19,8 +19,10 @@ El bot utiliza un flujo integrado en `sync_bot.py` enfocado en la resiliencia:
     *   Una vez terminadas las descargas, el navegador se cierra automáticamente para liberar recursos.
     *   Procesa los CSVs y actualiza/crea productos en WooCommerce vía API.
     *   **Retry Logic**: Reintentos automáticos con espera exponencial ante fallos de la API.
-4.  **Fase de Reporte**:
-    *   Envía un correo electrónico detallado con el resumen de la sincronización (productos actualizados, creados, errores y categorías procesadas).
+4.  **Fase de Limpieza (Cleaner)**:
+    *   **Gestión de Inventario**: Si el stock es <= 2, el producto pasa a borrador (`draft`) automáticamente.
+    *   **Historial Inteligente**: Mantiene registro de por qué un producto fue ocultado (stock vs fuera de catálogo).
+    *   **Reporte Final**: Envía un correo consolidado con todas las fases.
 
 ## 🖼️ Bot de Imágenes (Independiente)
 
@@ -51,13 +53,14 @@ pip install -r requirements.txt
 El orquestador maneja el flujo completo (Sync -> Imágenes -> Carga) de forma automática y envía un reporte consolidado.
 
 ```bash
-# Ejecutar todo el flujo (Sincronización + Imágenes + Carga)
+# Ejecutar todo el flujo (Sincronización + Imágenes + Carga + Limpieza)
 python main_orchestrator.py all
 
 # Ejecutar solo fases específicas
 python main_orchestrator.py sync    # Solo descarga CSV y actualiza precios/stock
 python main_orchestrator.py images  # Solo busca y descarga imágenes faltantes
 python main_orchestrator.py upload  # Solo sube imágenes nuevas a WooCommerce
+python main_orchestrator.py clean   # Solo ejecuta la limpieza de inventario inteligente
 ```
 
 ### 2. Ejecución de Componentes Individuales
@@ -68,6 +71,7 @@ Si prefieres un control granular o depuración específica, puedes usar los bots
 | `sync_bot.py` | Sincronización principal de CSV y WooCommerce | `python sync_bot.py` |
 | `image_bot.py` | Descarga de imágenes por SKU desde el portal | `python image_bot.py` |
 | `image_uploader.py` | Sube y vincula imágenes locales a WooCommerce | `python image_uploader.py` |
+| `inventory_cleaner.py`| Gestión de stock seguro y fuera de catálogo | `python inventory_cleaner.py` |
 | `scraper_intcomex.py`| Extracción de prueba (Scraper simplificado) | `python scraper_intcomex.py` |
 
 ### 3. Herramientas de Utilidad
@@ -78,8 +82,10 @@ Si prefieres un control granular o depuración específica, puedes usar los bots
 ## 📁 Estructura del Proyecto
 ```
 intcomex-bot/
-├── sync_bot.py           # Script principal de producción
+├── main_orchestrator.py  # Orquestador central (Recomendado)
+├── sync_bot.py           # Script principal de sincronización base
 ├── image_bot.py          # Bot de descarga de imágenes
+├── inventory_cleaner.py  # Bot de gestión de stock y limpieza
 ├── credentials.py        # Credenciales (Ignorado por Git)
 ├── downloads/            # Almacenamiento temporal de CSVs
 ├── product_images/       # Repositorio local de imágenes descargadas
