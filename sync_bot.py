@@ -420,91 +420,68 @@ def escribir_como_humano(element, text):
 
 def login_intcomex(driver, username, password):
     """
-    Inicia sesión en Intcomex usando Selenium + PyAutoGUI para forzar el foco y la entrada.
-    Simula comportamiento de hardware físico.
+    Inicia sesión en Intcomex usando "Fuerza Bruta" con PyAutoGUI.
+    Asegura el foco usando Shift+Tab y limpia el campo antes de escribir.
     """
     print(f"🌐 Navegando a: {LOGIN_URL}")
     driver.get(LOGIN_URL)
-    time.sleep(3)
     
-    # Asegurar ventana maximizada para coordenadas consistentes
+    # 1. Maximizar y esperar a que la carga sea completa
+    print("📺 Maximizando ventana y esperando 5 segundos...")
     driver.maximize_window()
-    time.sleep(1)
+    time.sleep(5)
     
-    wait = WebDriverWait(driver, 20)
-
     try:
         # Asegurar que estamos en el contenido principal
         driver.switch_to.default_content()
         
-        # 1. Localizar el campo de usuario para obtener su posición física
-        print("🤖 Buscando campo de usuario para clic físico...")
-        selectors_username = [
-            (By.ID, "txtEmail"),
-            (By.NAME, "txtEmail"),
-        ]
+        # 2. Forzar Foco en el campo de Correo (Shift + Tab x3)
+        print("⌨️  Recuperando foco con Shift+Tab (x3)...")
+        for _ in range(3):
+            pyautogui.hotkey('shift', 'tab')
+            time.sleep(0.3)
         
-        username_field = None
-        for selector in selectors_username:
-            try:
-                username_field = wait.until(EC.element_to_be_clickable(selector))
-                break
-            except: continue
-            
-        if not username_field:
-            raise Exception("No se pudo localizar el campo de usuario (txtEmail)")
-
-        # Obtener coordenadas del elemento en pantalla
-        # Usamos location_once_scrolled_into_view para asegurar visibilidad
-        location = username_field.location_once_scrolled_into_view
+        # 3. Limpiar campo (Ctrl + A + Backspace)
+        print("⌨️  Limpiando campo con Ctrl+A + Backspace...")
+        pyautogui.hotkey('ctrl', 'a')
+        time.sleep(0.2)
+        pyautogui.press('backspace')
+        time.sleep(0.3)
         
-        # Calcular centro del elemento relativo a la ventana del navegador
-        # Nota: Selenium nos da coordenadas relativas al viewport. 
-        # PyAutoGUI usa coordenadas globales de pantalla.
-        # Si la ventana está maximizada, Selenium suele darnos buenos offsets, 
-        # pero para ser más precisos, clicamos en el elemento vía Selenium y luego PyAutoGUI.
-        
-        print("🖱️  Forzando foco con PyAutoGUI...")
-        username_field.click() # Click Selenium inicial
-        time.sleep(0.5)
-        
-        # Simular clic físico en la posición del mouse actual (donde Selenium acaba de cliquear)
-        # O usar coordenadas si es necesario. Por ahora, asumimos que Selenium puso el cursor cerca.
-        pyautogui.click() 
-        time.sleep(0.5)
-        
-        # 2. Escritura Física de Usuario
-        print(f"⌨️  Escribiendo usuario físicamente: {username}")
+        # 4. Escritura de Usuario (Humana)
+        print(f"⌨️  Escribiendo usuario: {username}")
         pyautogui.write(username, interval=0.15)
         time.sleep(0.5)
         
-        # 3. Pasar a Contraseña con TAB
-        print("⌨️  Navegando a contraseña con TAB...")
+        # 5. Saltar a Contraseña (Tab)
+        print("⌨️  Saltando a contraseña (TAB)...")
         pyautogui.press('tab')
         time.sleep(0.5)
         
-        # 4. Escritura Física de Contraseña
-        print("⌨️  Escribiendo contraseña físicamente...")
+        # 6. Escribir Contraseña
+        print("⌨️  Escribiendo contraseña...")
         pyautogui.write(password, interval=0.15)
         time.sleep(0.5)
         
-        # 5. Clic en Botón Login (Físico)
-        print("⌨️  Iniciando sesión (ENTER)...")
+        # 7. Entrar (ENTER)
+        print("⌨️  Enviando formulario (ENTER)...")
         pyautogui.press('enter')
         
-        # Espera humana post-clic
-        time.sleep(2)
-        
-        # 6. Validación Post-Login
-        print("🔍 Validando acceso...")
-        success_indicators = [
-            (By.CSS_SELECTOR, "a[href*='logout']"),
-            (By.CSS_SELECTOR, ".user-menu"),
-            (By.ID, "CountrySelector"),
-            (By.XPATH, "//a[contains(text(), 'Cerrar')]")
-        ]
-        
-        for i in range(25): # Aumentado a 25 segundos
+        # 8. Validación Rápida (10 segundos)
+        print("🔍 Validando acceso (espera 10s)...")
+        for i in range(10):
+            # Check por URL (si ya no estamos en login)
+            current_url = driver.current_url.lower()
+            if "login" not in current_url and "account" not in current_url:
+                print(f"✓ Inicio de sesión detectado por URL: {driver.current_url}")
+                return True
+                
+            # Check por elementos de éxito
+            success_indicators = [
+                (By.CSS_SELECTOR, "a[href*='logout']"),
+                (By.CSS_SELECTOR, ".user-menu"),
+                (By.ID, "CountrySelector")
+            ]
             for indicator in success_indicators:
                 try:
                     if driver.find_elements(indicator[0], indicator[1]):
@@ -512,19 +489,14 @@ def login_intcomex(driver, username, password):
                         return True
                 except: pass
             
-            # Check por URL
-            if "Login" not in driver.current_url and "Account" not in driver.current_url.lower() and "login" not in driver.current_url.lower():
-                 print(f"✓ Inicio de sesión detectado por URL: {driver.current_url}")
-                 return True
-                 
             time.sleep(1)
             
-        print("✗ No se pudo confirmar el inicio de sesión.")
+        print("✗ No se detectó cambio de estado en 10 segundos.")
         return False
         
     except Exception as e:
-        print(f"✗ Error durante el inicio de sesión con PyAutoGUI: {e}")
-        driver.save_screenshot("login_error_pyautogui.png")
+        print(f"✗ Error durante la fuerza bruta de login: {e}")
+        driver.save_screenshot("login_error_brute_force.png")
         return False
 
 
