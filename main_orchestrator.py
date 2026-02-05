@@ -8,10 +8,10 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
 # Importar bots
-from sync_bot import run_sync_bot, init_woocommerce_api
 from image_bot import run_image_bot
 from image_uploader import run_image_uploader
 from inventory_cleaner import run_inventory_cleaner
+from sync_bot import run_sync_bot, init_woocommerce_api, LoginException
 
 # Importar credenciales
 try:
@@ -34,6 +34,39 @@ MAPA_IMAGENES_PATH = os.path.join(DATA_PATH, "mapa_imagenes.json")
 
 # Asegurar que la carpeta de datos existe
 os.makedirs(DATA_PATH, exist_ok=True)
+
+def enviar_alerta_emergencia(error):
+    """Envía un correo de alerta inmediata ante fallos críticos de login."""
+    print("🚨 Enviando Alerta de Emergencia...")
+    try:
+        fecha = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        msg = MIMEMultipart()
+        msg['From'] = SMTP_USER
+        msg['To'] = "bot_intcomex@tupartnerti.cl, marcosreyes@tupartnerti.cl"
+        msg['Subject'] = "🚨 ERROR CRÍTICO: Fallo de Login en Intcomex - Proceso Detenido"
+        
+        cuerpo = f"""
+        <html>
+        <body>
+            <h2 style='color: #e74c3c;'>🚨 ALERTA DE SISTEMA: FALLO DE ACCESO</h2>
+            <p>Se ha detectado un error crítico durante el inicio de sesión en el portal de Intcomex.</p>
+            <p><b>Error:</b> {error}</p>
+            <p><b>Fecha/Hora:</b> {fecha}</p>
+            <hr>
+            <p style='color: #c0392b; font-weight: bold;'>EL PROCESO SE HA DETENIDO PARA EVITAR INCONSISTENCIAS.</p>
+            <p>Por favor, revisa el screenshot de error en el servidor y valida las credenciales o selectores del bot.</p>
+        </body>
+        </html>
+        """
+        msg.attach(MIMEText(cuerpo, 'html'))
+        
+        destinatarios = ["bot_intcomex@tupartnerti.cl", "marcosreyes@tupartnerti.cl"]
+        with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as server:
+            server.login(SMTP_USER, SMTP_PASS)
+            server.sendmail(SMTP_USER, destinatarios, msg.as_string())
+        print("✅ Alerta de emergencia enviada.")
+    except Exception as e:
+        print(f"❌ Falló envío de alerta: {e}")
 
 def load_state():
     if os.path.exists(STATE_FILE):
@@ -177,6 +210,12 @@ def main():
             resumen["sync"]["stats"] = stats
             resumen["sync"]["nuevos_skus"] = nuevos
         
+        except LoginException as le:
+            error_msg = f"Fallo de Login: {le}"
+            resumen["sync"]["status"] = "CRITICAL_ERROR"
+            enviar_alerta_emergencia(error_msg)
+            raise Exception(error_msg) # Propagar para detener ejecución y enviar reporte final
+
         # FASE B: Deep Scan de Imágenes
         # Basado en estado: buscamos qué productos en el JSON no tienen imagen
         if mode in ['all', 'images']:

@@ -23,6 +23,11 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from webdriver_manager.chrome import ChromeDriverManager
 import random
+import sys
+
+class LoginException(Exception):
+    """Excepción personalizada para fallos de login."""
+    pass
 
 # Importar credenciales desde archivo externo
 try:
@@ -540,11 +545,12 @@ def login_intcomex(driver, username, password):
             time.sleep(1)
             
         print("✗ No se pudo confirmar el inicio de sesión.")
+        driver.save_screenshot("login_error_auto_confirm.png")
         return False
         
     except Exception as e:
         print(f"✗ Error durante el inicio de sesión automatizado: {e}")
-        driver.save_screenshot("login_error_auto_v2.png")
+        driver.save_screenshot("login_error_auto_critico.png")
         return False
 
 
@@ -972,7 +978,7 @@ def run_sync_bot(driver=None):
         if not login_intcomex(driver, USERNAME, PASSWORD):
             print("✗ El inicio de sesión falló.")
             if must_close_driver: driver.quit()
-            return total_stats, []
+            raise LoginException("Fallo de autenticación en Intcomex")
         
         print("\nPASO 1.2: OBTENER VALOR DEL DÓLAR")
         valor_dolar = obtener_dolar_web(driver)
