@@ -1,11 +1,9 @@
 import os
 import json
 import time
-import re
 import requests
 import pandas as pd
-import glob
-from pathlib import Path
+from datetime import datetime
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -15,31 +13,31 @@ from selenium.webdriver.chrome.options import Options as ChromeOptions
 from webdriver_manager.chrome import ChromeDriverManager
 
 # --- Configuración ---
+DATA_PATH = "data_activa"
 DOWNLOAD_DIR = "downloads"
 IMAGE_DIR = "product_images"
-STATE_FILE = "estado_productos.json"
-BASE_SEARCH_URL = "https://store.intcomex.com/es-XCL/Search?terms="
+STATE_FILE = os.path.join(DATA_PATH, "estado_productos.json")
+MAPA_IMAGENES_PATH = os.path.join(DATA_PATH, "mapa_imagenes.json")
 
-# Diccionario de categorías con URLs (igual que en sync_bot.py)
+# Diccionario de categorías con URLs (Públicas)
 CATEGORY_URLS = {
     "Notebooks": "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.notebook?r=True",
-    "Monitores": "https://store.intcomex.com/es-XCL/Products/ByCategory/mnt.monitor?r=True",
-    "Monitores_TV": "https://store.intcomex.com/es-XCL/Products/ByCategory/mnt.tv?r=True",
-    "Desktop": "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.desktop?r=True",
-    "Tablets": "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.tablet?r=True",
-    "Impresoras_Inkjet": "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.inkjet?r=True",
-    "Impresoras_Label": "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.label?r=True",
-    "Impresoras_Laser": "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.laser?r=True",
-    "Impresoras_MFP": "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.mfp?r=True",
-    "Scanners": "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.scanner?r=True",
-    "All_in_One": "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.allone?r=True"
+    # "Monitores": "https://store.intcomex.com/es-XCL/Products/ByCategory/mnt.monitor?r=True",
+    # "Monitores_TV": "https://store.intcomex.com/es-XCL/Products/ByCategory/mnt.tv?r=True",
+    # "Desktop": "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.desktop?r=True",
+    # "Tablets": "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.tablet?r=True",
+    # "Impresoras_Inkjet": "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.inkjet?r=True",
+    # "Impresoras_Label": "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.label?r=True",
+    # "Impresoras_Laser": "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.laser?r=True",
+    # "Impresoras_MFP": "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.mfp?r=True",
+    # "Scanners": "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.scanner?r=True",
+    # "All_in_One": "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.allone?r=True"
 }
 
 # Crear carpetas necesarias
 os.makedirs(IMAGE_DIR, exist_ok=True)
 
 def load_state():
-    """Carga el estado de los productos desde el archivo JSON."""
     if os.path.exists(STATE_FILE):
         try:
             with open(STATE_FILE, 'r', encoding='utf-8') as f:
@@ -50,195 +48,190 @@ def load_state():
     return {}
 
 def save_state(state):
-    """Guarda el estado de los productos en el archivo JSON."""
     try:
         with open(STATE_FILE, 'w', encoding='utf-8') as f:
             json.dump(state, f, indent=4, ensure_ascii=False)
     except Exception as e:
         print(f"✗ Error al guardar {STATE_FILE}: {e}")
 
-def get_skus_from_csvs():
-    """Extrae todos los SKUs únicos de los archivos CSV con detección dinámica de encabezado."""
-    skus = set()
-    # MODO TEST: Solo procesar Monitores_TV.csv
-    csv_files = [os.path.join(DOWNLOAD_DIR, "Monitores_TV.csv")]
-    
-    print(f"🔍 [TEST] Buscando SKUs en {os.path.basename(csv_files[0])}...")
-    
-    for file_path in csv_files:
-        try:
-            # 1. Detección dinámica del encabezado y enconding
-            encoding = 'utf-16'
-            header_row = -1
-            
-            try:
-                with open(file_path, 'r', encoding=encoding) as f:
-                    for i, line in enumerate(f):
-                        if "sku" in line.lower():
-                            header_row = i
-                            break
-            except (UnicodeDecodeError, UnicodeError):
-                encoding = 'latin-1'
-                with open(file_path, 'r', encoding=encoding) as f:
-                    for i, line in enumerate(f):
-                        if "sku" in line.lower():
-                            header_row = i
-                            break
-
-            if header_row == -1:
-                print(f"  ❌ Error: No se encontró la fila con 'SKU' en {os.path.basename(file_path)}")
-                continue
-
-            # 2. Carga del DataFrame con el separador correcto
-            df = pd.read_csv(file_path, sep='\t', encoding=encoding, skiprows=header_row)
-            
-            # 3. Limpieza de nombres de columnas
-            df.columns = [str(c).lower().strip() for c in df.columns]
-            
-            # 4. Extracción de SKUs
-            if 'sku' in df.columns:
-                file_skus = df['sku'].dropna().astype(str).str.strip().unique()
-                # Filtrar valores vacíos
-                file_skus = [s for s in file_skus if s and s.lower() != 'sku']
-                skus.update(file_skus)
-                print(f"  ✓ {os.path.basename(file_path)}: {len(file_skus)} SKUs encontrados.")
-            else:
-                print(f"  ❌ Error: No se encontró la columna SKU en {os.path.basename(file_path)}")
-                print(f"     Columnas detectadas: {df.columns.tolist()}")
-                
-        except Exception as e:
-            print(f"  ⚠ Error crítico al leer {os.path.basename(file_path)}: {e}")
-                
-    print(f"✅ Total de SKUs únicos para procesar: {len(skus)}")
-    return list(skus)
-
-def download_image(url, sku, sequence):
-    """Descarga una imagen y la guarda con el formato SKU_001.xxx"""
-    try:
-        response = requests.get(url, timeout=15, stream=True)
-        if response.status_code == 200:
-            # Obtener extensión
-            ext = ".jpg"
-            if "png" in url.lower(): ext = ".png"
-            elif "webp" in url.lower(): ext = ".webp"
-            
-            filename = f"{sku}_{str(sequence).zfill(3)}{ext}"
-            filepath = os.path.join(IMAGE_DIR, filename)
-            
-            with open(filepath, 'wb') as f:
-                for chunk in response.iter_content(1024):
-                    f.write(chunk)
-            
-            return filepath
-    except Exception as e:
-        print(f"    ✗ Error descargando {url}: {e}")
-    return None
-
-def setup_driver():
-    """Configura el driver de Selenium."""
+def setup_driver(headless=True):
+    """Configura el driver de Selenium para navegación pública."""
     chrome_options = ChromeOptions()
-    chrome_options.add_argument("--headless=new")
+    if headless:
+        chrome_options.add_argument("--headless=new")
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--window-size=1920,1080")
-    # Añadir User-Agent para evitar bloqueos básicos
+    # User-Agent para evitar bloqueos
     chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
     
     service = ChromeService(ChromeDriverManager().install())
     return webdriver.Chrome(service=service, options=chrome_options)
 
-def main():
-    print("🚀 Iniciando Bot de Descarga de Imágenes (Modo Escaneo por Categoría)")
+def download_image(url, sku):
+    """Descarga una imagen y la guarda localmente."""
+    try:
+        # Asegurar alta calidad (_L.jpg)
+        final_url = url.replace("M.jpg", "L.jpg").replace("S.jpg", "L.jpg")
+        if final_url.startswith("/"):
+            final_url = f"https://store.intcomex.com{final_url}"
+            
+        headers = {"User-Agent": "Mozilla/5.0"}
+        response = requests.get(final_url, timeout=15, stream=True, headers=headers)
+        
+        if response.status_code == 200:
+            ext = ".jpg"
+            if "png" in final_url.lower(): ext = ".png"
+            elif "webp" in final_url.lower(): ext = ".webp"
+            
+            filename = f"{sku}_001{ext}"
+            filepath = os.path.join(IMAGE_DIR, filename)
+            
+            with open(filepath, 'wb') as f:
+                for chunk in response.iter_content(1024):
+                    f.write(chunk)
+            return filepath
+    except Exception as e:
+        print(f"    ✗ Error descargando {sku}: {e}")
+    return None
+
+def scroll_all_the_way(driver, timeout=30):
+    """
+    Realiza scroll dinámico hasta que no se carguen más productos.
+    Ideal para activar el lazy-load de imágenes y cargar catálogos extensos.
+    """
+    last_height = driver.execute_script("return document.body.scrollHeight")
+    start_time = time.time()
+    
+    while True:
+        # Scroll hasta el final
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        time.sleep(2) # Espera a que cargue el contenido
+        
+        new_height = driver.execute_script("return document.body.scrollHeight")
+        if new_height == last_height or (time.time() - start_time) > timeout:
+            break
+        last_height = new_height
+
+SEARCH_URL_TEMPLATE = "https://store.intcomex.com/es-XCL/Products/ByKeyword?term=+{sku}&typeSearch=&r=true"
+
+def run_image_bot(skus_to_process=None):
+    """
+    Ejecuta el Targeted Search Harvesting:
+    Navega SKU por SKU directamente a la página de resultados/producto.
+    """
+    print("\n" + "="*60)
+    print("🚀 IMAGE BOT: TARGETED SEARCH HARVEST (BY SKU)")
+    print("="*60)
     
     state = load_state()
-    # SKUs que necesitamos descargar (pendientes)
-    target_skus = set(get_skus_from_csvs())
-    
-    # Filtrar los que ya tenemos
-    skus_to_download = []
-    for sku in target_skus:
-        if sku in state and state[sku].get("tiene_imagen") and state[sku].get("imagenes_locales"):
-            continue
-        skus_to_download.append(sku)
-    
-    print(f"📦 SKUs pendientes de imagen: {len(skus_to_download)}")
-    if not skus_to_download:
-        print("✅ No hay imágenes pendientes para descargar.")
-        return
+    if not state:
+        print("✗ No se pudo cargar el estado. Abortando.")
+        return 0
 
-    driver = setup_driver()
+    # Cargar mapa existente si existe
+    image_map = {}
+    if os.path.exists(MAPA_IMAGENES_PATH):
+        try:
+            with open(MAPA_IMAGENES_PATH, 'r', encoding='utf-8') as f:
+                image_map = json.load(f)
+        except: pass
+
+    # Determinar qué SKUs procesar (Orden del JSON)
+    if skus_to_process:
+        target_skus = [sku for sku in state.keys() if sku in skus_to_process]
+    else:
+        # Pendientes con stock, ignorando fallidos si se desea (o reintentando todos)
+        target_skus = [sku for sku, data in state.items() 
+                      if not data.get("tiene_imagen") 
+                      and data.get("stock", 0) > 0]
+
+    if not target_skus:
+        print("✅ No hay SKUs con stock pendientes de imagen.")
+        return 0
+
+    print(f"📦 Procesando {len(target_skus)} SKUs mediante búsqueda directa...")
     
+    driver = setup_driver(headless=True)
+    downloaded_count = 0
+    wait = WebDriverWait(driver, 10)
+
     try:
-        for cat_name, cat_url in CATEGORY_URLS.items():
-            print(f"\n📂 Escaneando Categoría: {cat_name}")
-            driver.get(cat_url)
+        for idx, sku in enumerate(target_skus):
+            print(f"[{idx+1}/{len(target_skus)}] Buscando SKU: {sku}...")
             
-            while True:
-                # Scroll progresivo para cargar lazy loading
-                driver.execute_script("window.scrollTo(0, 500);")
-                time.sleep(2)
-                driver.execute_script("window.scrollTo(0, 1000);")
-                time.sleep(2)
+            search_url = SEARCH_URL_TEMPLATE.format(sku=sku)
+            driver.get(search_url)
+            time.sleep(1) # Cortesía con el servidor
+            
+            try:
+                # Caso A: Estamos en una lista de resultados
+                # Caso B: Redireccionó directamente a la ficha del producto
                 
-                # Encontrar todos los productos en la página actual
-                all_product_anchors = driver.find_elements(By.CSS_SELECTOR, "a[data-sku]")
-                print(f"  🔍 {len(all_product_anchors)} productos encontrados en esta página.")
+                # Intentamos encontrar un anchor con el SKU o la imagen directamente
+                # Selector común para el catálogo: a[data-sku='SKU']
+                # Selector común para la ficha: img#product-image (o similar)
                 
-                found_in_page = 0
-                for anchor in all_product_anchors:
-                    sku = anchor.get_attribute("data-sku")
-                    if sku in target_skus:
-                        # Verificar si todavía lo necesitamos
-                        if sku in state and state[sku].get("tiene_imagen"):
-                            continue
-                            
-                        print(f"    ⭐ Match encontrado: {sku}")
-                        try:
-                            img_el = anchor.find_element(By.TAG_NAME, "img")
-                            src = img_el.get_attribute("data-src") or img_el.get_attribute("src")
-                            
-                            if src:
-                                if src.startswith("/"):
-                                    src = f"https://store.intcomex.com{src}"
-                                
-                                # Forzar alta resolución
-                                src = src.replace("M.jpg", "L.jpg").replace("S.jpg", "L.jpg")
-                                
-                                local_path = download_image(src, sku, 1) # Solo una imagen por ahora en escaneo rápido
-                                if local_path:
-                                    state[sku] = {
-                                        "tiene_imagen": True,
-                                        "imagenes_locales": [local_path],
-                                        "last_updated": time.strftime("%Y-%m-%d %H:%M:%S")
-                                    }
-                                    print(f"      ✅ Imagen descargada.")
-                                    found_in_page += 1
-                                    save_state(state) # Guardar a cada hallazgo para no perder progreso
-                        except Exception as e:
-                            print(f"      ❌ Error extrayendo imagen para {sku}: {e}")
-
-                # Lógica de Paginación: Buscar botón "Siguiente" o "Next"
+                img_src = None
+                
+                # 1. Intentar encontrar el producto en una lista (data-sku)
                 try:
-                    next_button = driver.find_elements(By.XPATH, "//a[contains(@class, 'next') or contains(text(), 'Siguiente')]")
-                    if next_button and next_button[0].is_displayed():
-                        print("  ⏭️ Pasando a la siguiente página...")
-                        driver.execute_script("arguments[0].click();", next_button[0])
-                        time.sleep(4)
-                    else:
-                        print(f"  🏁 Fin de categoría {cat_name}.")
-                        break
+                    product_anchor = driver.find_element(By.CSS_SELECTOR, f"a[data-sku='{sku}']")
+                    img_el = product_anchor.find_element(By.TAG_NAME, "img")
+                    img_src = img_el.get_attribute("data-src") or img_el.get_attribute("src")
                 except:
-                    print(f"  🏁 No se encontró botón siguiente en {cat_name}.")
-                    break
+                    # 2. Intentar buscar cualquier imagen que parezca la principal si redirigió
+                    # A veces la clase es .product-image o similar
+                    selectors = [
+                        "img.product-image", 
+                        "img[alt*='" + sku + "']",
+                        ".product-view-container img",
+                        "a[data-sku] img"
+                    ]
+                    for sel in selectors:
+                        try:
+                            els = driver.find_elements(By.CSS_SELECTOR, sel)
+                            if els:
+                                img_src = els[0].get_attribute("data-src") or els[0].get_attribute("src")
+                                if img_src: break
+                        except: continue
 
+                if img_src and "intcomex" in img_src:
+                    local_path = download_image(img_src, sku)
+                    if local_path:
+                        state[sku].update({
+                            "tiene_imagen": True,
+                            "imagenes_locales": [local_path],
+                            "subido_a_woo": False,      # Forzar re-subida para incluir imagen
+                            "pendiente_sync_woo": True, # Forzar sincronización en Fase C
+                            "last_updated": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        })
+                        image_map[sku] = img_src
+                        downloaded_count += 1
+                        print(f"    ✅ Imagen encontrada: {img_src}")
+                        
+                        # Guardar progreso
+                        save_state(state)
+                        with open(MAPA_IMAGENES_PATH, 'w', encoding='utf-8') as f:
+                            json.dump(image_map, f, indent=4, ensure_ascii=False)
+                    else:
+                        print(f"    ✗ Error al descargar imagen encontrada.")
+                else:
+                    print(f"    ✗ No se encontró imagen para {sku}.")
+                    state[sku]["estado_subida"] = "no_encontrado_en_busqueda"
+                    save_state(state)
+
+            except Exception as e:
+                print(f"    ✗ Error procesando {sku}: {e}")
+
+    except Exception as e:
+        print(f"❌ Error crítico en Image Bot: {e}")
     finally:
-        save_state(state)
         driver.quit()
-        print("\n✅ Proceso de escaneo finalizado.")
+        
+    print(f"\n✅ Proceso de búsqueda finalizado. {downloaded_count} imágenes nuevas.")
+    return downloaded_count
 
 if __name__ == "__main__":
-    main()
-
-if __name__ == "__main__":
-    main()
+    run_image_bot()

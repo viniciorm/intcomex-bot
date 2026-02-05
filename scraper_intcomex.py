@@ -18,17 +18,17 @@ USERNAME = "paola.riveros@tupartnerti.cl" # El usuario ahora está fijo en el c�
 
 # Lista de URLs de categorías de productos
 CATEGORY_URLS = [
-    "https://store.intcomex.com/es-XCL/Products/ByCategory/mnt.tv?r=True",
-    "https://store.intcomex.com/es-XCL/Products/ByCategory/mnt.monitor?r=True",
-    "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.desktop?r=True",
+    # "https://store.intcomex.com/es-XCL/Products/ByCategory/mnt.tv?r=True",
+    # "https://store.intcomex.com/es-XCL/Products/ByCategory/mnt.monitor?r=True",
+    # "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.desktop?r=True",
     "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.notebook?r=True",
-    "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.tablet?r=True",
-    "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.inkjet?r=True",
-    "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.label?r=True",
-    "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.laser?r=True",
-    "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.mfp?r=True",
-    "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.scanner?r=True",
-    "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.allone?r=True"
+    # "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.tablet?r=True",
+    # "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.inkjet?r=True",
+    # "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.label?r=True",
+    # "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.laser?r=True",
+    # "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.mfp?r=True",
+    # "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.scanner?r=True",
+    # "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.allone?r=True"
 ]
 
 # --- ¡¡¡AQUÍ NECESITAS TUS SELECTORES CSS/XPATH REALES!!! ---
