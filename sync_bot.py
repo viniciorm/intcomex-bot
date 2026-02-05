@@ -435,35 +435,66 @@ def login_intcomex(driver, username, password):
         # Asegurar que estamos en el contenido principal
         driver.switch_to.default_content()
         
-        # 2. Forzar Foco en el campo de Correo (Shift + Tab x3)
-        print("⌨️  Recuperando foco con Shift+Tab (x3)...")
-        for _ in range(3):
-            pyautogui.hotkey('shift', 'tab')
-            time.sleep(0.3)
-        
-        # 3. Limpiar campo (Ctrl + A + Backspace)
-        print("⌨️  Limpiando campo con Ctrl+A + Backspace...")
-        pyautogui.hotkey('ctrl', 'a')
-        time.sleep(0.2)
-        pyautogui.press('backspace')
-        time.sleep(0.3)
-        
-        # 4. Escritura de Usuario (Humana)
-        print(f"⌨️  Escribiendo usuario: {username}")
-        pyautogui.write(username, interval=0.15)
+        # 2. Asegurar Foco en la ventana (Clic en el cuerpo)
+        print("🖱️  Asegurando foco en la ventana...")
+        driver.execute_script("window.scrollTo(0, 0);")
         time.sleep(0.5)
         
-        # 5. Saltar a Contraseña (Tab)
+        # Intentar clickear el campo de correo vía Selenium para centrar el foco
+        print("🤖 Intentando foco Selenium en campo correo...")
+        selectors_email = [
+            (By.ID, "email"), # Común en B2C
+            (By.ID, "logonIdentifier"), # Común en B2C
+            (By.ID, "txtEmail"),
+            (By.NAME, "email"),
+            (By.CSS_SELECTOR, "input[type='email']")
+        ]
+        
+        email_element = None
+        for selector in selectors_email:
+            try:
+                email_element = driver.find_element(selector[0], selector[1])
+                if email_element.is_displayed():
+                    print(f"   ✓ Encontrado por {selector[0]}='{selector[1]}'")
+                    # Usar click para enfocar
+                    driver.execute_script("arguments[0].focus();", email_element)
+                    time.sleep(0.5)
+                    email_element.click()
+                    break
+            except: continue
+        
+        time.sleep(1)
+        
+        # 3. Forzar Foco adicional con Shift+Tab (x2 para re-entrar si es necesario)
+        print("⌨️  Garantizando foco con Shift+Tab...")
+        pyautogui.hotkey('shift', 'tab')
+        time.sleep(0.3)
+        pyautogui.press('tab') # Volver a entrar
+        time.sleep(0.5)
+        
+        # 4. Limpiar campo (Ctrl + A + Backspace)
+        print("⌨️  Limpiando campo...")
+        pyautogui.hotkey('ctrl', 'a')
+        time.sleep(0.3)
+        pyautogui.press('backspace')
+        time.sleep(0.5)
+        
+        # 5. Escritura de Usuario (Física)
+        print(f"⌨️  Escribiendo usuario físicamente...")
+        pyautogui.write(username, interval=0.15)
+        time.sleep(0.8)
+        
+        # 6. Saltar a Contraseña (Tab)
         print("⌨️  Saltando a contraseña (TAB)...")
         pyautogui.press('tab')
-        time.sleep(0.5)
+        time.sleep(0.8)
         
-        # 6. Escribir Contraseña
+        # 7. Escribir Contraseña
         print("⌨️  Escribiendo contraseña...")
         pyautogui.write(password, interval=0.15)
-        time.sleep(0.5)
+        time.sleep(0.8)
         
-        # 7. Entrar (ENTER)
+        # 8. Entrar (ENTER)
         print("⌨️  Enviando formulario (ENTER)...")
         pyautogui.press('enter')
         
