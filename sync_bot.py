@@ -24,6 +24,7 @@ from email.mime.multipart import MIMEMultipart
 from webdriver_manager.chrome import ChromeDriverManager
 import random
 import sys
+import pyautogui
 
 class LoginException(Exception):
     """Excepción personalizada para fallos de login."""
@@ -419,108 +420,82 @@ def escribir_como_humano(element, text):
 
 def login_intcomex(driver, username, password):
     """
-    Inicia sesión en Intcomex usando Selenium de forma automatizada.
-    Simula comportamiento humano (escritura lenta y scroll).
-    Actualizado con selectores específicos de la consola.
+    Inicia sesión en Intcomex usando Selenium + PyAutoGUI para forzar el foco y la entrada.
+    Simula comportamiento de hardware físico.
     """
     print(f"🌐 Navegando a: {LOGIN_URL}")
     driver.get(LOGIN_URL)
-    time.sleep(2)
+    time.sleep(3)
+    
+    # Asegurar ventana maximizada para coordenadas consistentes
+    driver.maximize_window()
+    time.sleep(1)
+    
     wait = WebDriverWait(driver, 20)
 
     try:
         # Asegurar que estamos en el contenido principal
         driver.switch_to.default_content()
         
-        # Verificar si ya estamos logueados
-        current_url = driver.current_url
-        if "Login" not in current_url and "login" not in current_url.lower():
-            print(f"✓ Ya estás logueado en Intcomex. URL: {current_url}")
-            return True
-        
-        print("🤖 Iniciando login automatizado...")
-        
-        # 1. Localizar y escribir usuario
-        # Prioridad a los IDs proporcionados por el usuario
+        # 1. Localizar el campo de usuario para obtener su posición física
+        print("🤖 Buscando campo de usuario para clic físico...")
         selectors_username = [
             (By.ID, "txtEmail"),
             (By.NAME, "txtEmail"),
-            LOGIN_USERNAME_FIELD_SELECTOR,
         ]
         
         username_field = None
         for selector in selectors_username:
             try:
                 username_field = wait.until(EC.element_to_be_clickable(selector))
-                print(f"   ✓ Campo usuario encontrado por {selector[0]}='{selector[1]}'")
                 break
             except: continue
             
         if not username_field:
-            raise Exception("No se pudo encontrar el campo de usuario (txtEmail)")
-            
-        print(f"⌨️  Escribiendo usuario: {username}")
-        username_field.click() 
-        username_field.clear()
-        escribir_como_humano(username_field, username)
+            raise Exception("No se pudo localizar el campo de usuario (txtEmail)")
+
+        # Obtener coordenadas del elemento en pantalla
+        # Usamos location_once_scrolled_into_view para asegurar visibilidad
+        location = username_field.location_once_scrolled_into_view
         
-        time.sleep(1.5) # Espera humana entre campos
+        # Calcular centro del elemento relativo a la ventana del navegador
+        # Nota: Selenium nos da coordenadas relativas al viewport. 
+        # PyAutoGUI usa coordenadas globales de pantalla.
+        # Si la ventana está maximizada, Selenium suele darnos buenos offsets, 
+        # pero para ser más precisos, clicamos en el elemento vía Selenium y luego PyAutoGUI.
         
-        # 2. Localizar y escribir contraseña
-        selectors_password = [
-            (By.ID, "txtPassword"),
-            (By.NAME, "txtPassword"),
-            LOGIN_PASSWORD_FIELD_SELECTOR,
-        ]
-        
-        password_field = None
-        for selector in selectors_password:
-            try:
-                password_field = wait.until(EC.element_to_be_clickable(selector))
-                print(f"   ✓ Campo contraseña encontrado por {selector[0]}='{selector[1]}'")
-                break
-            except: continue
-            
-        if not password_field:
-            raise Exception("No se pudo encontrar el campo de contraseña (txtPassword)")
-            
-        print("⌨️  Escribiendo contraseña...")
-        password_field.click()
-        password_field.clear()
-        escribir_como_humano(password_field, password)
-        
-        time.sleep(1)
-        
-        # 3. Simular actividad (Scroll)
-        print("🖱️  Simulando actividad (scroll)...")
-        driver.execute_script("window.scrollBy(0, 300);")
-        time.sleep(1)
-        
-        # 4. Clic en el botón de login
-        selectors_button = [
-            (By.ID, "btnLogin"),
-            LOGIN_BUTTON_SELECTOR,
-            (By.CSS_SELECTOR, "button[type='submit']"),
-        ]
-        
-        login_button = None
-        for selector in selectors_button:
-            try:
-                login_button = wait.until(EC.element_to_be_clickable(selector))
-                print(f"   ✓ Botón login encontrado por {selector[0]}='{selector[1]}'")
-                break
-            except: continue
-            
-        if not login_button:
-            raise Exception("No se pudo encontrar el botón de login (btnLogin)")
-            
-        print("🖱️  Haciendo clic en el botón de login...")
-        # Desplazarse al botón si es necesario
-        driver.execute_script("arguments[0].scrollIntoView(true);", login_button)
+        print("🖱️  Forzando foco con PyAutoGUI...")
+        username_field.click() # Click Selenium inicial
         time.sleep(0.5)
-        login_button.click()
         
-        # 5. Validación Post-Login
+        # Simular clic físico en la posición del mouse actual (donde Selenium acaba de cliquear)
+        # O usar coordenadas si es necesario. Por ahora, asumimos que Selenium puso el cursor cerca.
+        pyautogui.click() 
+        time.sleep(0.5)
+        
+        # 2. Escritura Física de Usuario
+        print(f"⌨️  Escribiendo usuario físicamente: {username}")
+        pyautogui.write(username, interval=0.15)
+        time.sleep(0.5)
+        
+        # 3. Pasar a Contraseña con TAB
+        print("⌨️  Navegando a contraseña con TAB...")
+        pyautogui.press('tab')
+        time.sleep(0.5)
+        
+        # 4. Escritura Física de Contraseña
+        print("⌨️  Escribiendo contraseña físicamente...")
+        pyautogui.write(password, interval=0.15)
+        time.sleep(0.5)
+        
+        # 5. Clic en Botón Login (Físico)
+        print("⌨️  Iniciando sesión (ENTER)...")
+        pyautogui.press('enter')
+        
+        # Espera humana post-clic
+        time.sleep(2)
+        
+        # 6. Validación Post-Login
         print("🔍 Validando acceso...")
         success_indicators = [
             (By.CSS_SELECTOR, "a[href*='logout']"),
@@ -529,7 +504,7 @@ def login_intcomex(driver, username, password):
             (By.XPATH, "//a[contains(text(), 'Cerrar')]")
         ]
         
-        for i in range(20): # Aumentado a 20 segundos
+        for i in range(25): # Aumentado a 25 segundos
             for indicator in success_indicators:
                 try:
                     if driver.find_elements(indicator[0], indicator[1]):
@@ -537,7 +512,7 @@ def login_intcomex(driver, username, password):
                         return True
                 except: pass
             
-            # También check por URL
+            # Check por URL
             if "Login" not in driver.current_url and "Account" not in driver.current_url.lower() and "login" not in driver.current_url.lower():
                  print(f"✓ Inicio de sesión detectado por URL: {driver.current_url}")
                  return True
@@ -545,12 +520,11 @@ def login_intcomex(driver, username, password):
             time.sleep(1)
             
         print("✗ No se pudo confirmar el inicio de sesión.")
-        driver.save_screenshot("login_error_auto_confirm.png")
         return False
         
     except Exception as e:
-        print(f"✗ Error durante el inicio de sesión automatizado: {e}")
-        driver.save_screenshot("login_error_auto_critico.png")
+        print(f"✗ Error durante el inicio de sesión con PyAutoGUI: {e}")
+        driver.save_screenshot("login_error_pyautogui.png")
         return False
 
 
@@ -974,11 +948,24 @@ def run_sync_bot(driver=None):
     
     try:
         # FASE 1: DESCARGAS
-        print("\nPASO 1.1: INICIO DE SESIÓN")
-        if not login_intcomex(driver, USERNAME, PASSWORD):
-            print("✗ El inicio de sesión falló.")
+        print("\nPASO 1.1: INICIO DE SESIÓN (REINTENTOS ACTIVADOS)")
+        login_success = False
+        max_intentos = 3
+        for intento in range(1, max_intentos + 1):
+            print(f"🤖 Intento de login #{intento} de {max_intentos}...")
+            if login_intcomex(driver, USERNAME, PASSWORD):
+                login_success = True
+                break
+            else:
+                print(f"✗ Intento #{intento} fallido.")
+                if intento < max_intentos:
+                    print("🔄 Reintentando en 5 segundos...")
+                    time.sleep(5)
+        
+        if not login_success:
+            print("❌ Todos los intentos de login fallaron.")
             if must_close_driver: driver.quit()
-            raise LoginException("Fallo de autenticación en Intcomex")
+            raise LoginException("Fallo de autenticación tras 3 intentos con PyAutoGUI")
         
         print("\nPASO 1.2: OBTENER VALOR DEL DÓLAR")
         valor_dolar = obtener_dolar_web(driver)
