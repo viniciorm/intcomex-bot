@@ -998,6 +998,8 @@ def run_sync_bot(driver=None):
 
     except Exception as e:
         print(f"\n✗ Error crítico en descargas: {e}")
+        if isinstance(e, LoginException):
+             raise e
     finally:
         if must_close_driver:
             print("\n🔒 Cerrando navegador...")
