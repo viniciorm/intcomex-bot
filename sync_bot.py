@@ -22,6 +22,7 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from webdriver_manager.chrome import ChromeDriverManager
+import random
 
 # Importar credenciales desde archivo externo
 try:
@@ -405,11 +406,16 @@ def update_product_in_woocommerce(wcapi, product_id, product_data):
 
 # --- Funciones de Navegación ---
 
+def type_like_human(element, text):
+    """Escribe texto en un elemento simulando el ritmo humano."""
+    for char in text:
+        element.send_keys(char)
+        time.sleep(random.uniform(0.1, 0.3))
+
 def login_intcomex(driver, username, password):
     """
-    Inicia sesión en Intcomex usando Selenium.
-    MODO MANUAL: Espera a que el usuario ingrese las credenciales manualmente.
-    El código de llenado automático está disponible pero comentado para uso futuro.
+    Inicia sesión en Intcomex usando Selenium de forma automatizada.
+    Simula comportamiento humano (escritura lenta y scroll).
     """
     print(f"🌐 Navegando a: {LOGIN_URL}")
     driver.get(LOGIN_URL)
@@ -423,166 +429,110 @@ def login_intcomex(driver, username, password):
             print(f"✓ Ya estás logueado en Intcomex. URL: {current_url}")
             return True
         
-        print("🔍 Esperando login manual...")
-        print("   Por favor, ingresa tus credenciales en el navegador.")
-        print(f"   Usuario sugerido: {username}")
-        print("   El bot esperará hasta que detecte que el login fue exitoso...")
+        print("🤖 Iniciando login automatizado...")
         
-        # ============================================================
-        # CÓDIGO DE LLENADO AUTOMÁTICO (COMENTADO - NO ACTIVO)
-        # ============================================================
-        # Descomenta este bloque si quieres activar el llenado automático:
-        #
-        # # Intentar múltiples selectores para el campo de usuario
-        # username_field = None
-        # selectors_username = [
-        #     LOGIN_USERNAME_FIELD_SELECTOR,
-        #     (By.NAME, "UserName"),
-        #     (By.NAME, "Email"),
-        #     (By.CSS_SELECTOR, "input[type='email']"),
-        #     (By.CSS_SELECTOR, "input[name='UserName']"),
-        # ]
-        # 
-        # for selector in selectors_username:
-        #     try:
-        #         username_field = wait.until(EC.presence_of_element_located(selector))
-        #         print(f"✓ Campo de usuario encontrado")
-        #         break
-        #     except:
-        #         continue
-        # 
-        # if not username_field:
-        #     raise Exception("No se pudo encontrar el campo de usuario")
-        # 
-        # # Intentar múltiples selectores para el campo de contraseña
-        # password_field = None
-        # selectors_password = [
-        #     LOGIN_PASSWORD_FIELD_SELECTOR,
-        #     (By.NAME, "Password"),
-        #     (By.CSS_SELECTOR, "input[type='password']"),
-        #     (By.CSS_SELECTOR, "input[name='Password']"),
-        # ]
-        # 
-        # for selector in selectors_password:
-        #     try:
-        #         password_field = wait.until(EC.presence_of_element_located(selector))
-        #         print(f"✓ Campo de contraseña encontrado")
-        #         break
-        #     except:
-        #         continue
-        # 
-        # if not password_field:
-        #     raise Exception("No se pudo encontrar el campo de contraseña")
-        # 
-        # # Limpiar y escribir credenciales
-        # username_field.clear()
-        # password_field.clear()
-        # time.sleep(0.5)
-        # 
-        # print(f"⌨️  Ingresando usuario: {username}")
-        # username_field.send_keys(username)
-        # time.sleep(0.5)
-        # 
-        # print("⌨️  Ingresando contraseña...")
-        # password_field.send_keys(password)
-        # time.sleep(0.5)
-        # 
-        # # Buscar botón de login
-        # login_button = None
-        # selectors_button = [
-        #     LOGIN_BUTTON_SELECTOR,
-        #     (By.CSS_SELECTOR, "button[type='submit']"),
-        #     (By.CSS_SELECTOR, "input[type='submit']"),
-        # ]
-        # 
-        # for selector in selectors_button:
-        #     try:
-        #         login_button = wait.until(EC.element_to_be_clickable(selector))
-        #         print(f"✓ Botón de login encontrado")
-        #         break
-        #     except:
-        #         continue
-        # 
-        # if not login_button:
-        #     raise Exception("No se pudo encontrar el botón de login")
-        # 
-        # print("🖱️  Haciendo clic en el botón de login...")
-        # login_button.click()
-        # time.sleep(3)
-        # ============================================================
+        # 1. Localizar y escribir usuario
+        selectors_username = [
+            LOGIN_USERNAME_FIELD_SELECTOR,
+            (By.NAME, "UserName"),
+            (By.CSS_SELECTOR, "input[name='UserName']"),
+        ]
         
-        # Esperar activamente a que el usuario complete el login manualmente
-        # Verificar cada segundo si el login fue exitoso
-        max_wait_time = 300  # 5 minutos máximo de espera
-        check_interval = 2  # Verificar cada 2 segundos
-        elapsed_time = 0
-        
-        print(f"   ⏳ Esperando login manual (máximo {max_wait_time} segundos)...")
-        
-        while elapsed_time < max_wait_time:
-            current_url = driver.current_url
-            
-            # Verificar si ya no estamos en la página de login
-            if "Login" not in current_url and "login" not in current_url.lower() and "Account" not in current_url:
-                print(f"\n✓ Inicio de sesión detectado exitosamente!")
-                print(f"   URL actual: {current_url}")
-                time.sleep(2)  # Esperar un poco más para asegurar que la página cargue
-                return True
-            
-            # Verificar si hay elementos que indican que estamos logueados
+        username_field = None
+        for selector in selectors_username:
             try:
-                logged_in_indicators = [
-                    (By.CSS_SELECTOR, "a[href*='logout']"),
-                    (By.CSS_SELECTOR, "a[href*='Logout']"),
-                    (By.XPATH, "//a[contains(text(), 'Cerrar') or contains(text(), 'Salir') or contains(text(), 'Logout')]"),
-                    (By.CSS_SELECTOR, ".user-menu"),
-                    (By.CSS_SELECTOR, ".account-menu"),
-                ]
-                
-                for indicator in logged_in_indicators:
-                    try:
-                        element = driver.find_element(indicator[0], indicator[1])
-                        if element:
-                            print(f"\n✓ Inicio de sesión detectado (elemento de sesión encontrado)!")
-                            print(f"   URL actual: {current_url}")
-                            return True
-                    except:
-                        continue
-            except:
-                pass
+                username_field = wait.until(EC.element_to_be_clickable(selector))
+                break
+            except: continue
             
-            time.sleep(check_interval)
-            elapsed_time += check_interval
+        if not username_field:
+            raise Exception("No se pudo encontrar el campo de usuario")
             
-            # Mostrar progreso cada 30 segundos
-            if elapsed_time % 30 == 0:
-                remaining = max_wait_time - elapsed_time
-                print(f"   ⏳ Aún esperando... ({remaining} segundos restantes)")
+        print(f"⌨️  Escribiendo usuario: {username}")
+        username_field.click() # Clic inicial
+        username_field.clear()
+        type_like_human(username_field, username)
         
-        # Si llegamos aquí, el timeout se alcanzó
-        print(f"\n⚠ Timeout alcanzado después de {max_wait_time} segundos")
-        print(f"   URL actual: {current_url}")
+        time.sleep(1.5) # Espera humana entre campos
         
-        # Preguntar al usuario si el login fue exitoso
-        print("\n¿El login fue exitoso? (s/n): ", end="")
-        try:
-            response = input().lower()
-            if response == 's':
-                print("✓ Continuando con el script...")
-                return True
-            else:
-                print("✗ Login no completado. Cancelando ejecución.")
-                return False
-        except:
-            print("\n✗ No se pudo obtener respuesta. Cancelando ejecución.")
-            return False
+        # 2. Localizar y escribir contraseña
+        selectors_password = [
+            LOGIN_PASSWORD_FIELD_SELECTOR,
+            (By.NAME, "Password"),
+            (By.CSS_SELECTOR, "input[name='Password']"),
+        ]
         
-    except KeyboardInterrupt:
-        print("\n⚠ Proceso interrumpido por el usuario durante el login.")
+        password_field = None
+        for selector in selectors_password:
+            try:
+                password_field = wait.until(EC.element_to_be_clickable(selector))
+                break
+            except: continue
+            
+        if not password_field:
+            raise Exception("No se pudo encontrar el campo de contraseña")
+            
+        print("⌨️  Escribiendo contraseña...")
+        password_field.click()
+        password_field.clear()
+        type_like_human(password_field, password)
+        
+        time.sleep(1)
+        
+        # 3. Simular actividad (Scroll)
+        print("🖱️  Simulando actividad (scroll)...")
+        driver.execute_script("window.scrollBy(0, 250);")
+        time.sleep(1)
+        
+        # 4. Clic en el botón de login
+        login_button = None
+        selectors_button = [
+            LOGIN_BUTTON_SELECTOR,
+            (By.ID, "LoginButton"),
+            (By.CSS_SELECTOR, "button[type='submit']"),
+        ]
+        
+        for selector in selectors_button:
+            try:
+                login_button = wait.until(EC.element_to_be_clickable(selector))
+                break
+            except: continue
+            
+        if not login_button:
+            raise Exception("No se pudo encontrar el botón de login")
+            
+        print("🖱️  Haciendo clic en el botón de login...")
+        login_button.click()
+        
+        # 5. Validación Post-Login
+        print("🔍 Validando acceso...")
+        # Indicadores de éxito: desaparición de login o aparición de elementos de dashboard
+        success_indicators = [
+            (By.CSS_SELECTOR, "a[href*='logout']"),
+            (By.CSS_SELECTOR, ".user-menu"),
+            (By.ID, "CountrySelector"), # Elemento típico de Intcomex
+            (By.XPATH, "//a[contains(text(), 'Cerrar')]")
+        ]
+        
+        for i in range(15): # 15 segundos de espera para la redirección
+            for indicator in success_indicators:
+                try:
+                    if driver.find_elements(indicator[0], indicator[1]):
+                        print("✓ Inicio de sesión exitoso detectado.")
+                        return True
+                except: pass
+            time.sleep(1)
+            
+        if "Login" not in driver.current_url and "Account" not in driver.current_url:
+            print(f"✓ Inicio de sesión detectado por URL: {driver.current_url}")
+            return True
+            
+        print("✗ No se pudo confirmar el inicio de sesión.")
         return False
+        
     except Exception as e:
-        print(f"✗ Error durante el inicio de sesión: {e}")
-        driver.save_screenshot("login_error.png")
+        print(f"✗ Error durante el inicio de sesión automatizado: {e}")
+        driver.save_screenshot("login_error_auto.png")
         return False
 
 
