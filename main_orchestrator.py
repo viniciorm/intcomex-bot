@@ -202,19 +202,18 @@ def main():
     try:
         # FASE A: Sincronización (Solo si mode es 'all' o 'sync')
         if mode in ['all', 'sync']:
-            print("\n[FASE A] Iniciando Sincronización de Precios/Stock...")
-            # Sync Bot requiere login (Selenium con ventana para manual login)
-            # Reutilizamos la infraestructura interna de sync_bot
-            stats, nuevos = run_sync_bot()
-            resumen["sync"]["status"] = "OK"
-            resumen["sync"]["stats"] = stats
-            resumen["sync"]["nuevos_skus"] = nuevos
-        
-        except LoginException as le:
-            error_msg = f"Fallo de Login: {le}"
-            resumen["sync"]["status"] = "CRITICAL_ERROR"
-            enviar_alerta_emergencia(error_msg)
-            raise Exception(error_msg) # Propagar para detener ejecución y enviar reporte final
+            try:
+                print("\n[FASE A] Iniciando Sincronización de Precios/Stock...")
+                # Sync Bot requiere login (Selenium)
+                stats, nuevos = run_sync_bot()
+                resumen["sync"]["status"] = "OK"
+                resumen["sync"]["stats"] = stats
+                resumen["sync"]["nuevos_skus"] = nuevos
+            except LoginException as le:
+                error_msg = f"Fallo de Login: {le}"
+                resumen["sync"]["status"] = "CRITICAL_ERROR"
+                enviar_alerta_emergencia(error_msg)
+                raise Exception(error_msg) # Detener ejecución y enviar reporte final
 
         # FASE B: Deep Scan de Imágenes
         # Basado en estado: buscamos qué productos en el JSON no tienen imagen
