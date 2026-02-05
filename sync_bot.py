@@ -25,6 +25,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 import random
 import sys
 import pyautogui
+import pyperclip
 
 class LoginException(Exception):
     """Excepción personalizada para fallos de login."""
@@ -479,9 +480,11 @@ def login_intcomex(driver, username, password):
         pyautogui.press('backspace')
         time.sleep(0.5)
         
-        # 5. Escritura de Usuario (Física)
-        print(f"⌨️  Escribiendo usuario físicamente...")
-        pyautogui.write(username, interval=0.15)
+        # 5. Escritura de Usuario (Uso de Portapapeles para evitar fallos con '@')
+        print(f"⌨️  Pegando usuario desde portapapeles...")
+        pyperclip.copy(username)
+        time.sleep(0.5)
+        pyautogui.hotkey('ctrl', 'v')
         time.sleep(0.8)
         
         # 6. Saltar a Contraseña (Tab)
@@ -489,9 +492,11 @@ def login_intcomex(driver, username, password):
         pyautogui.press('tab')
         time.sleep(0.8)
         
-        # 7. Escribir Contraseña
-        print("⌨️  Escribiendo contraseña...")
-        pyautogui.write(password, interval=0.15)
+        # 7. Escribir Contraseña (Uso de Portapapeles para robustez)
+        print("⌨️  Pegando contraseña...")
+        pyperclip.copy(password)
+        time.sleep(0.5)
+        pyautogui.hotkey('ctrl', 'v')
         time.sleep(0.8)
         
         # 8. Entrar (ENTER)
