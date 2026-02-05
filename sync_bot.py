@@ -406,7 +406,7 @@ def update_product_in_woocommerce(wcapi, product_id, product_data):
 
 # --- Funciones de Navegación ---
 
-def type_like_human(element, text):
+def escribir_como_humano(element, text):
     """Escribe texto en un elemento simulando el ritmo humano."""
     for char in text:
         element.send_keys(char)
@@ -416,6 +416,7 @@ def login_intcomex(driver, username, password):
     """
     Inicia sesión en Intcomex usando Selenium de forma automatizada.
     Simula comportamiento humano (escritura lenta y scroll).
+    Actualizado con selectores específicos de la consola.
     """
     print(f"🌐 Navegando a: {LOGIN_URL}")
     driver.get(LOGIN_URL)
@@ -423,6 +424,9 @@ def login_intcomex(driver, username, password):
     wait = WebDriverWait(driver, 20)
 
     try:
+        # Asegurar que estamos en el contenido principal
+        driver.switch_to.default_content()
+        
         # Verificar si ya estamos logueados
         current_url = driver.current_url
         if "Login" not in current_url and "login" not in current_url.lower():
@@ -432,107 +436,115 @@ def login_intcomex(driver, username, password):
         print("🤖 Iniciando login automatizado...")
         
         # 1. Localizar y escribir usuario
+        # Prioridad a los IDs proporcionados por el usuario
         selectors_username = [
+            (By.ID, "txtEmail"),
+            (By.NAME, "txtEmail"),
             LOGIN_USERNAME_FIELD_SELECTOR,
-            (By.NAME, "UserName"),
-            (By.CSS_SELECTOR, "input[name='UserName']"),
         ]
         
         username_field = None
         for selector in selectors_username:
             try:
                 username_field = wait.until(EC.element_to_be_clickable(selector))
+                print(f"   ✓ Campo usuario encontrado por {selector[0]}='{selector[1]}'")
                 break
             except: continue
             
         if not username_field:
-            raise Exception("No se pudo encontrar el campo de usuario")
+            raise Exception("No se pudo encontrar el campo de usuario (txtEmail)")
             
         print(f"⌨️  Escribiendo usuario: {username}")
-        username_field.click() # Clic inicial
+        username_field.click() 
         username_field.clear()
-        type_like_human(username_field, username)
+        escribir_como_humano(username_field, username)
         
         time.sleep(1.5) # Espera humana entre campos
         
         # 2. Localizar y escribir contraseña
         selectors_password = [
+            (By.ID, "txtPassword"),
+            (By.NAME, "txtPassword"),
             LOGIN_PASSWORD_FIELD_SELECTOR,
-            (By.NAME, "Password"),
-            (By.CSS_SELECTOR, "input[name='Password']"),
         ]
         
         password_field = None
         for selector in selectors_password:
             try:
                 password_field = wait.until(EC.element_to_be_clickable(selector))
+                print(f"   ✓ Campo contraseña encontrado por {selector[0]}='{selector[1]}'")
                 break
             except: continue
             
         if not password_field:
-            raise Exception("No se pudo encontrar el campo de contraseña")
+            raise Exception("No se pudo encontrar el campo de contraseña (txtPassword)")
             
         print("⌨️  Escribiendo contraseña...")
         password_field.click()
         password_field.clear()
-        type_like_human(password_field, password)
+        escribir_como_humano(password_field, password)
         
         time.sleep(1)
         
         # 3. Simular actividad (Scroll)
         print("🖱️  Simulando actividad (scroll)...")
-        driver.execute_script("window.scrollBy(0, 250);")
+        driver.execute_script("window.scrollBy(0, 300);")
         time.sleep(1)
         
         # 4. Clic en el botón de login
-        login_button = None
         selectors_button = [
+            (By.ID, "btnLogin"),
             LOGIN_BUTTON_SELECTOR,
-            (By.ID, "LoginButton"),
             (By.CSS_SELECTOR, "button[type='submit']"),
         ]
         
+        login_button = None
         for selector in selectors_button:
             try:
                 login_button = wait.until(EC.element_to_be_clickable(selector))
+                print(f"   ✓ Botón login encontrado por {selector[0]}='{selector[1]}'")
                 break
             except: continue
             
         if not login_button:
-            raise Exception("No se pudo encontrar el botón de login")
+            raise Exception("No se pudo encontrar el botón de login (btnLogin)")
             
         print("🖱️  Haciendo clic en el botón de login...")
+        # Desplazarse al botón si es necesario
+        driver.execute_script("arguments[0].scrollIntoView(true);", login_button)
+        time.sleep(0.5)
         login_button.click()
         
         # 5. Validación Post-Login
         print("🔍 Validando acceso...")
-        # Indicadores de éxito: desaparición de login o aparición de elementos de dashboard
         success_indicators = [
             (By.CSS_SELECTOR, "a[href*='logout']"),
             (By.CSS_SELECTOR, ".user-menu"),
-            (By.ID, "CountrySelector"), # Elemento típico de Intcomex
+            (By.ID, "CountrySelector"),
             (By.XPATH, "//a[contains(text(), 'Cerrar')]")
         ]
         
-        for i in range(15): # 15 segundos de espera para la redirección
+        for i in range(20): # Aumentado a 20 segundos
             for indicator in success_indicators:
                 try:
                     if driver.find_elements(indicator[0], indicator[1]):
                         print("✓ Inicio de sesión exitoso detectado.")
                         return True
                 except: pass
-            time.sleep(1)
             
-        if "Login" not in driver.current_url and "Account" not in driver.current_url:
-            print(f"✓ Inicio de sesión detectado por URL: {driver.current_url}")
-            return True
+            # También check por URL
+            if "Login" not in driver.current_url and "Account" not in driver.current_url.lower() and "login" not in driver.current_url.lower():
+                 print(f"✓ Inicio de sesión detectado por URL: {driver.current_url}")
+                 return True
+                 
+            time.sleep(1)
             
         print("✗ No se pudo confirmar el inicio de sesión.")
         return False
         
     except Exception as e:
         print(f"✗ Error durante el inicio de sesión automatizado: {e}")
-        driver.save_screenshot("login_error_auto.png")
+        driver.save_screenshot("login_error_auto_v2.png")
         return False
 
 
