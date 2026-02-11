@@ -70,30 +70,37 @@ def setup_driver(headless=True):
     return webdriver.Chrome(service=service, options=chrome_options)
 
 def download_image(url, sku):
-    """Descarga una imagen y la guarda localmente."""
-    try:
-        # Asegurar alta calidad (_L.jpg)
-        final_url = url.replace("M.jpg", "L.jpg").replace("S.jpg", "L.jpg")
-        if final_url.startswith("/"):
-            final_url = f"https://store.intcomex.com{final_url}"
+    """Descarga una imagen y la guarda localmente con reintento de calidad."""
+    # Definir lista de URLs a probar (HQ primero, luego original)
+    hq_url = url.replace("M.jpg", "L.jpg").replace("S.jpg", "L.jpg")
+    urls_to_try = [hq_url]
+    if hq_url != url:
+        urls_to_try.append(url)
+    
+    headers = {"User-Agent": "Mozilla/5.0"}
+    
+    for final_url in urls_to_try:
+        try:
+            if final_url.startswith("/"):
+                final_url = f"https://store.intcomex.com{final_url}"
+                
+            response = requests.get(final_url, timeout=10, stream=True, headers=headers)
             
-        headers = {"User-Agent": "Mozilla/5.0"}
-        response = requests.get(final_url, timeout=15, stream=True, headers=headers)
-        
-        if response.status_code == 200:
-            ext = ".jpg"
-            if "png" in final_url.lower(): ext = ".png"
-            elif "webp" in final_url.lower(): ext = ".webp"
+            if response.status_code == 200:
+                ext = ".jpg"
+                if "png" in final_url.lower(): ext = ".png"
+                elif "webp" in final_url.lower(): ext = ".webp"
+                
+                filename = f"{sku}_001{ext}"
+                filepath = os.path.join(IMAGE_DIR, filename)
+                
+                with open(filepath, 'wb') as f:
+                    for chunk in response.iter_content(1024):
+                        f.write(chunk)
+                return filepath
+        except Exception:
+            continue
             
-            filename = f"{sku}_001{ext}"
-            filepath = os.path.join(IMAGE_DIR, filename)
-            
-            with open(filepath, 'wb') as f:
-                for chunk in response.iter_content(1024):
-                    f.write(chunk)
-            return filepath
-    except Exception as e:
-        print(f"    ✗ Error descargando {sku}: {e}")
     return None
 
 def scroll_all_the_way(driver, timeout=30):
