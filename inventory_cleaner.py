@@ -54,7 +54,7 @@ def get_all_woo_products(wcapi):
 def run_inventory_cleaner():
     """Ejecuta la lógica de limpieza y gestión de inventario."""
     print("\n" + "="*50)
-    print("🧹 INICIANDO CLEANER BOT (Gesti\xf3n de Inventario)")
+    print("🧹 INICIANDO CLEANER BOT (Gestión de Inventario)")
     print("="*50)
     
     wcapi = init_woocommerce_api()
@@ -77,7 +77,7 @@ def run_inventory_cleaner():
     for sku, woo_id in skus_in_woo.items():
         if sku not in skus_in_csv:
             # Fuera de catálogo
-            print(f"  📉 SKU {sku} fuera de cat\xe1logo. Pasando a borrador.")
+            print(f"  📉 SKU {sku} fuera de catálogo. Pasando a borrador.")
             updates.append({"id": woo_id, "status": "draft"})
             if sku in state:
                 state[sku].update({
@@ -91,7 +91,7 @@ def run_inventory_cleaner():
             stock = state[sku].get("stock", 0)
             if stock <= 2:
                 # Stock bajo
-                print(f"  🛡️ SKU {sku} stock cr\xedtico ({stock}). Pasando a borrador.")
+                print(f"  🛡️ SKU {sku} stock crítico ({stock}). Pasando a borrador.")
                 updates.append({"id": woo_id, "status": "draft"})
                 state[sku].update({
                     "status_web": "borrador",
@@ -107,17 +107,13 @@ def run_inventory_cleaner():
                     "ultima_sincronizacion": now_str
                 })
 
-    # 2. Regla de Re-activaci\xf3n para SKUs en el estado (que podr\xedan estar en draft)
-    # Nota: No obtenemos los draft de Woo para ahorrar tiempo, confiamos en el JSON o 
-    # simplemente intentamos publicar si el stock es suficiente y no est\xe1 en skus_in_woo
+    # 2. Regla de Re-activación para SKUs en el estado (que podrían estar en draft)
     for sku, data in state.items():
         if sku in skus_in_csv and data.get("stock", 0) > 2:
-            # Si no estaba en skus_in_woo (los publicados), podr\xeda ser un draft o nuevo
-            # pero el uploader se encarga de los nuevos. Aqu\xed buscamos reactivar.
             if data.get("status_web") == "borrador" or (sku not in skus_in_woo and data.get("woo_id")):
                 woo_id = data.get("woo_id")
                 if woo_id:
-                    print(f"  🚀 SKU {sku} recuper\xf3 stock. Re-publicando.")
+                    print(f"  🚀 SKU {sku} recuperó stock. Re-publicando.")
                     updates.append({"id": woo_id, "status": "publish"})
                     data.update({
                         "status_web": "publicado",
@@ -129,17 +125,22 @@ def run_inventory_cleaner():
     # 3. Aplicar actualizaciones en Batch
     if updates:
         print(f"\n📦 Aplicando {len(updates)} cambios en WooCommerce...")
-        # Lote de 100 para la API
-        for i in range(0, len(updates), 100):
-            batch = updates[i:i+100]
+        # Lote de 20 para evitar límites de headers del servidor/proxy
+        batch_size = 20
+        for i in range(0, len(updates), batch_size):
+            batch = updates[i:i+batch_size]
             try:
+                print(f"  ⏳ Procesando lote {i//batch_size + 1} ({len(batch)} productos)...")
                 res = wcapi.post("products/batch", data={"update": batch})
                 if res.status_code in [200, 201]:
-                    print(f"  ✓ Lote {i//100 + 1} procesado con \xe9xito.")
+                    print(f"  ✓ Lote {i//batch_size + 1} procesado con éxito.")
                 else:
-                    print(f"  ✗ Error en lote {i//100 + 1}: {res.text}")
+                    print(f"  ✗ Error en lote {i//batch_size + 1}: {res.text[:200]}")
+                
+                # Pausa de seguridad
+                time.sleep(1)
             except Exception as e:
-                print(f"  ✗ Excepci\xf3n en lote {i//100 + 1}: {e}")
+                print(f"  ✗ Excepción en lote {i//batch_size + 1}: {e}")
     else:
         print("\n✨ No hay cambios de inventario necesarios.")
 

@@ -21,6 +21,7 @@ except ImportError:
 # Configuración
 DATA_PATH = "data_activa"
 STATE_FILE = os.path.join(DATA_PATH, "estado_productos.json")
+IMAGE_DIR = "product_images"
 
 # Inicializar WooCommerce API para vinculación
 wcapi = API(
@@ -184,7 +185,13 @@ def sync_product_data_to_woo(sku, data):
         "manage_stock": True,
         "stock_quantity": data.get("stock"),
         "status": "publish",
-        "categories": categories_list
+        "categories": categories_list,
+        "meta_data": [
+            {
+                "key": "n8n_mejorado",
+                "value": "false"
+            }
+        ]
     }
 
     try:
@@ -244,7 +251,25 @@ def run_image_uploader():
             
         # B. Sincronizar Imagen si tiene una local y no está subida
         if data.get("tiene_imagen") and not data.get("subido_a_woo"):
-            local_path = data.get("imagenes_locales", [None])[0]
+            local_list = data.get("imagenes_locales", [])
+            local_path = local_list[0] if local_list else None
+            
+            # --- AUTO-DISCOVERY FIX ---
+            if not local_path or not os.path.exists(local_path):
+                # Intentar descubrir la imagen por nombre de archivo estándar
+                possible_paths = [
+                    os.path.join(IMAGE_DIR, f"{sku}_001.jpg"),
+                    os.path.join(IMAGE_DIR, f"{sku}_001.png"),
+                    os.path.join(IMAGE_DIR, f"{sku}_001.webp")
+                ]
+                for p in possible_paths:
+                    if os.path.exists(p):
+                        local_path = p
+                        # Actualizar estado para futuras vueltas
+                        state[sku]["imagenes_locales"] = [p]
+                        break
+            # ---------------------------
+
             if local_path and os.path.exists(local_path):
                 media_id, media_url = upload_image_binary(local_path, sku)
                 if media_id:

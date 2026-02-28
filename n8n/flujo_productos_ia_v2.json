@@ -1,0 +1,325 @@
+{
+    "name": "Enriquecimiento de Productos E-commerce IA (Desde JSON local)",
+    "nodes": [
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "days"
+                        }
+                    ]
+                }
+            },
+            "id": "e45dcaf6-2e21-4f9c-9c94-0ab1daab4e1d",
+            "name": "Schedule Trigger",
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1.1,
+            "position": [
+                0,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "fileSelector": "c:/Users/marco/Documents/GitHub/intcomex-bot/data_activa/estado_productos.json"
+            },
+            "id": "read-json-node",
+            "name": "Leer estado_productos.json",
+            "type": "n8n-nodes-base.readWriteFile",
+            "typeVersion": 1,
+            "position": [
+                200,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "let rawData = $input.first().json.data;\nif (typeof rawData !== 'string') {\n  // Intenta obtenerlo desde input.first().json directamente por si n8n ya lo convirtió\n  rawData = JSON.stringify($input.first().json);\n}\nconst data = JSON.parse(rawData);\nreturn Object.values(data).map(item => ({ json: item }));"
+            },
+            "id": "convert-to-list-node",
+            "name": "Convertir a Lista",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                400,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "boolean": [
+                        {
+                            "value1": "={{ $json.subido_a_woo }}",
+                            "value2": true
+                        }
+                    ]
+                }
+            },
+            "id": "filter-subidos-node",
+            "name": "Filtrar Subidos",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                600,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "batchSize": 1,
+                "options": {}
+            },
+            "id": "loop-node",
+            "name": "Loop (1 por 1)",
+            "type": "n8n-nodes-base.splitInBatches",
+            "typeVersion": 3,
+            "position": [
+                800,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "resource": "product",
+                "operation": "getAll",
+                "returnAll": true,
+                "options": {
+                    "sku": "={{ $json.sku }}"
+                }
+            },
+            "id": "woo-get-sku-node",
+            "name": "Woo Obten. por SKU",
+            "type": "n8n-nodes-base.wooCommerce",
+            "typeVersion": 1,
+            "position": [
+                1000,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "string": [
+                        {
+                            "value1": "={{ ($json.meta_data || []).find(m => m.key === 'n8n_mejorado')?.value || 'false' }}",
+                            "operation": "notEqual",
+                            "value2": "true"
+                        }
+                    ]
+                }
+            },
+            "id": "filter-mejorado-node",
+            "name": "Revisar n8n_mejorado",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                1200,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "amount": 2,
+                "unit": "seconds"
+            },
+            "id": "wait-node-id",
+            "name": "Espera 2s",
+            "type": "n8n-nodes-base.wait",
+            "typeVersion": 1.1,
+            "position": [
+                1400,
+                200
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.openai.com/v1/chat/completions",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify({\n  \"model\": \"gpt-4o-mini\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"Eres un redactor experto en e-commerce. Responde ÚNICAMENTE con código HTML (p, strong, ul, li). No uses Markdown ni bloques de código. Empieza directamente con la descripción.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": 'Nombre: ' + ($json.name || '') + '\\nCategoría: ' + ($json.categories && $json.categories[0] ? $json.categories[0].name : '') + '\\nDescripción actual: ' + ($json.description || '')\n    }\n  ]\n}) }}",
+                "options": {}
+            },
+            "id": "1ab7d9ac-ef30-4e4b-944d-fedea434b97d",
+            "name": "OpenAI - Texto",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                1600,
+                200
+            ]
+        },
+        {
+            "parameters": {
+                "resource": "product",
+                "operation": "update",
+                "productId": "={{ $('Woo Obten. por SKU').item.json.id }}",
+                "updateFields": {
+                    "description": "={{ $json.choices[0].message.content }}",
+                    "metadata": {
+                        "metadataProperties": [
+                            {
+                                "key": "n8n_mejorado",
+                                "value": "true"
+                            }
+                        ]
+                    }
+                }
+            },
+            "id": "e2fde4cc-ec82-4aa8-a0e2-dfbd2d64a856",
+            "name": "WooCommerce - Actualizar",
+            "type": "n8n-nodes-base.wooCommerce",
+            "typeVersion": 1,
+            "position": [
+                1800,
+                200
+            ]
+        },
+        {
+            "parameters": {},
+            "id": "no-op-node-true",
+            "name": "Salto (Ya mejorado)",
+            "type": "n8n-nodes-base.noop",
+            "typeVersion": 1,
+            "position": [
+                1400,
+                400
+            ]
+        }
+    ],
+    "connections": {
+        "Schedule Trigger": {
+            "main": [
+                [
+                    {
+                        "node": "Leer estado_productos.json",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Leer estado_productos.json": {
+            "main": [
+                [
+                    {
+                        "node": "Convertir a Lista",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Convertir a Lista": {
+            "main": [
+                [
+                    {
+                        "node": "Filtrar Subidos",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Filtrar Subidos": {
+            "main": [
+                [
+                    {
+                        "node": "Loop (1 por 1)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Loop (1 por 1)": {
+            "main": [
+                [],
+                [
+                    {
+                        "node": "Woo Obten. por SKU",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Woo Obten. por SKU": {
+            "main": [
+                [
+                    {
+                        "node": "Revisar n8n_mejorado",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Revisar n8n_mejorado": {
+            "main": [
+                [
+                    {
+                        "node": "Espera 2s",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Salto (Ya mejorado)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Espera 2s": {
+            "main": [
+                [
+                    {
+                        "node": "OpenAI - Texto",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "OpenAI - Texto": {
+            "main": [
+                [
+                    {
+                        "node": "WooCommerce - Actualizar",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "WooCommerce - Actualizar": {
+            "main": [
+                [
+                    {
+                        "node": "Loop (1 por 1)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Salto (Ya mejorado)": {
+            "main": [
+                [
+                    {
+                        "node": "Loop (1 por 1)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}

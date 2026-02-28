@@ -68,7 +68,34 @@ URLS = {
     "Impresoras_Laser": "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.laser?r=True",
     "Impresoras_MFP": "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.mfp?r=True",
     "Scanners": "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.scanner?r=True",
-    "All_in_One": "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.allone?r=True"
+    "All_in_One": "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.allone?r=True",
+    "Discos_Duros_Internos": "https://store.intcomex.com/es-XCL/Products/ByCategory/sto.inthd?r=True",
+    "Discos_Duros_Externos": "https://store.intcomex.com/es-XCL/Products/ByCategory/sto.exthd?r=True",
+    "Discos_SSD_Internos": "https://store.intcomex.com/es-XCL/Products/ByCategory/sto.ssd?r=True",
+    "Discos_SSD_Externos": "https://store.intcomex.com/es-XCL/Products/ByCategory/sto.ssdext?r=True",
+    "Procesadores": "https://store.intcomex.com/es-XCL/Products/ByCategory/cco.cpu?r=True"
+}
+
+# --- Validación de Categorías ---
+# Este diccionario mapea la categoría de URLS a palabras clave permitidas
+# en las columnas 'Categoría' o 'Subcategoría' del CSV de Intcomex.
+CATEGORY_VALIDATION = {
+    "Notebooks": ["Notebook", "Portátiles", "Laptops"],
+    "Monitores": ["Monitores", "Monitor", "Pantallas"],
+    "Monitores_TV": ["Televisores", "TV", "Monitores"],
+    "Desktop": ["Desktop", "Computadores", "CPU"],
+    "Tablets": ["Tablet", "Tabletas"],
+    "Impresoras_Inkjet": ["Inkjet", "Inyección"],
+    "Impresoras_Label": ["Label", "Etiquetas"],
+    "Impresoras_Laser": ["Laser", "Láser"],
+    "Impresoras_MFP": ["Multifuncionales", "Multifunción", "MFP"],
+    "Scanners": ["Scanner", "Escáner"],
+    "All_in_One": ["Todo-en-Uno", "All-in-One"],
+    "Discos_Duros_Internos": ["Disco Duro Interno", "HDD", "Disco Duro", "Almacenamiento Interno"],
+    "Discos_Duros_Externos": ["Disco Duro Externo", "Storage Externo"],
+    "Discos_SSD_Internos": ["SSD", "Unidad de Estado Sólido", "Solid State", "NVMe", "SATA", "PCIe", "M.2"],
+    "Discos_SSD_Externos": ["SSD Externo", "Solid State Drive Externo", "Almacenamiento Externo"],
+    "Procesadores": ["Procesador", "CPU", "Microprocesador", "Processor", "Intel", "AMD"]
 }
 
 # --- Configuración WooCommerce ---
@@ -366,7 +393,13 @@ def create_product_in_woocommerce(wcapi, product_data):
             "stock_quantity": int(product_data.get("stock", 0)),
             "status": "publish",
             "shipping_class": "free-shipping",
-            "tags": [{"name": "Envío Gratuito"}]
+            "tags": [{"name": "Envío Gratuito"}],
+            "meta_data": [
+                {
+                    "key": "n8n_mejorado",
+                    "value": "false"
+                }
+            ]
         }
         
         if product_data.get("categories"):
@@ -397,7 +430,13 @@ def update_product_in_woocommerce(wcapi, product_id, product_data):
             "stock_quantity": int(product_data.get("stock", 0)),
             "stock_status": "instock" if product_data.get("stock", 0) > 0 else "outofstock",
             "short_description": str(product_data.get("short_description", "")),
-            "categories": product_data.get("categories", [])
+            "categories": product_data.get("categories", []),
+            "meta_data": [
+                {
+                    "key": "n8n_mejorado",
+                    "value": "false"
+                }
+            ]
         }
         
         response = woocommerce_request(wcapi, "put", f"products/{product_id}", data=data)
@@ -579,17 +618,36 @@ def wait_for_download(category_name, timeout=30):
     return None
 
 
+def close_banners(driver):
+    """Detecta y cierra banners y popups publicitarios de forma exhaustiva."""
+    popup_selectors = [
+        (By.CSS_SELECTOR, ".popin_img_img"),
+        (By.CSS_SELECTOR, ".popup-close"),
+        (By.CSS_SELECTOR, ".modal-header .close"),
+        (By.CSS_SELECTOR, "[class*='popup'] [class*='close']"),
+        (By.CSS_SELECTOR, "[class*='ad'] [class*='close']"),
+        (By.CSS_SELECTOR, ".p-close"),
+        (By.XPATH, "//button[contains(@class, 'close') or contains(@id, 'close')]"),
+    ]
+    
+    found_any = False
+    for attempt in range(2): # Intentar un par de veces por si hay capas
+        for selector in popup_selectors:
+            try:
+                popups = driver.find_elements(selector[0], selector[1])
+                for popup in popups:
+                    if popup.is_displayed():
+                        print(f"  🗙 Cerrando popup/banner detectado (intento {attempt+1})...")
+                        driver.execute_script("arguments[0].click();", popup)
+                        found_any = True
+                        time.sleep(1)
+            except:
+                continue
+    return found_any
+
 def download_category_csv(driver, category_name, category_url):
     """
-    Navega a una categoría y descarga su CSV.
-    
-    Args:
-        driver: WebDriver de Selenium
-        category_name: Nombre de la categoría
-        category_url: URL de la categoría
-    
-    Returns:
-        str: Ruta del archivo CSV descargado, o None si falló
+    Navega a una categoría y descarga su CSV con validaciones robustas.
     """
     try:
         print(f"\n📥 Procesando categoría: {category_name}")
@@ -597,59 +655,45 @@ def download_category_csv(driver, category_name, category_url):
         
         # Navegar a la categoría
         driver.get(category_url)
-        time.sleep(3)  # Esperar a que la página cargue
+        time.sleep(4)  # Esperar un poco más
+        
+        # 1. Validar que la URL cargada sea la correcta o contenga el segmento esperado
+        # Intcomex a veces redirige si hay errores de sesión o banners
+        current_url = driver.current_url.lower()
+        segmento_esperado = category_url.split('/')[-1].split('?')[0].lower()
+        if segmento_esperado not in current_url and "login" not in current_url:
+            print(f"  ⚠ Advertencia: URL actual ({current_url}) no parece coincidir con la esperada ({segmento_esperado})")
+            print(f"  🔄 Re-navegando para asegurar fidelidad...")
+            driver.get(category_url)
+            time.sleep(3)
+
+        # 2. Cerrar banners publicitarios
+        close_banners(driver)
         
         # Buscar y hacer click en el botón de descarga
-        wait = WebDriverWait(driver, 10)
+        wait = WebDriverWait(driver, 15)
         try:
-            # Intentar cerrar popups de publicidad si existen
-            try:
-                popup_selectors = [
-                    (By.CSS_SELECTOR, ".popin_img_img"),
-                    (By.CSS_SELECTOR, ".popup-close"),
-                    (By.CSS_SELECTOR, "[class*='popup'] [class*='close']"),
-                    (By.CSS_SELECTOR, "[class*='ad'] [class*='close']"),
-                    (By.XPATH, "//button[contains(@class, 'close') or contains(@id, 'close')]"),
-                ]
-                for selector in popup_selectors:
-                    try:
-                        popup = driver.find_element(selector[0], selector[1])
-                        if popup.is_displayed():
-                            print(f"  🗙 Cerrando popup de publicidad...")
-                            driver.execute_script("arguments[0].click();", popup)
-                            time.sleep(1)
-                            break
-                    except:
-                        continue
-            except:
-                pass  # Si no hay popup, continuar
-            
             # Buscar el botón de descarga
             download_button = wait.until(EC.presence_of_element_located(DOWNLOAD_BUTTON_SELECTOR))
             print(f"  ✓ Botón de descarga encontrado")
             
-            # Verificar que tenga el atributo data-login (puede ser "LoggedUser" o "LogedUser")
-            data_login = download_button.get_attribute("data-login")
-            if data_login and data_login not in ["LoggedUser", "LogedUser"]:
-                print(f"  ⚠ Advertencia: data-login='{data_login}' (esperado: 'LoggedUser' o 'LogedUser')")
-            elif data_login:
-                print(f"  ✓ data-login encontrado: '{data_login}'")
+            # Re-confirmar que no haya aparecido un banner justo antes del click
+            close_banners(driver)
             
-            # Hacer scroll hasta el botón para asegurar que esté visible
+            # Hacer scroll y click
             driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", download_button)
-            time.sleep(0.5)
+            time.sleep(1)
             
-            # Hacer click usando JavaScript para evitar "Element Click Intercepted" por popups
-            # Este método penetra cualquier overlay visual (popups, publicidad, etc.)
-            print(f"  🖱️  Haciendo clic en botón de descarga (usando JavaScript)...")
+            # Click "seguro" usando JS
+            print(f"  🖱️  Haciendo clic en botón de descarga...")
             driver.execute_script("arguments[0].click();", download_button)
             
             # Esperar a que aparezca el archivo descargado
-            csv_file = wait_for_download(category_name, timeout=30)
+            csv_file = wait_for_download(category_name, timeout=40)
             return csv_file
             
         except Exception as e:
-            print(f"  ✗ Error al descargar CSV: {e}")
+            print(f"  ✗ Error al ubicar/clickear botón de descarga: {e}")
             return None
             
     except Exception as e:
@@ -858,10 +902,30 @@ def sincronizar_csv(archivo_csv, category_name, valor_dolar):
     cat_col = next((col for col in df.columns if 'categor' in str(col).lower() and 'sub' not in str(col).lower()), None)
     subcat_col = next((col for col in df.columns if 'subcategor' in str(col).lower()), None)
 
+    # Palabras clave para validar esta categoría específica
+    valid_keywords = CATEGORY_VALIDATION.get(category_name, [])
+
     for idx, row in df.iterrows():
         try:
             sku = str(row[sku_col]).strip() if sku_col and pd.notna(row[sku_col]) else None
             if not sku: continue
+            
+            # --- VALIDACIÓN DE CATEGORÍA ---
+            if valid_keywords:
+                cat_text = ""
+                if cat_col and pd.notna(row[cat_col]): 
+                    cat_text += str(row[cat_col])
+                if subcat_col and pd.notna(row[subcat_col]): 
+                    cat_text += " " + str(row[subcat_col])
+                
+                # Si no hay ninguna palabra clave en el texto de categoría, saltar
+                if not any(kw.lower() in cat_text.lower() for kw in valid_keywords):
+                    # Opcional: Loguear solo los primeros fallos para no saturar
+                    if stats["filtrados"] < 3:
+                        print(f"    ⚠ Filtrado por categoría incorrecta: SKU {sku} ({cat_text[:30]}...)")
+                    stats["filtrados"] += 1
+                    continue
+            # -------------------------------
             
             precio_usd = clean_price_to_float(row[price_col])
             if precio_usd is None or precio_usd <= 0: continue
@@ -906,7 +970,7 @@ def sincronizar_csv(archivo_csv, category_name, valor_dolar):
 
 # --- Funciones de Ejecución ---
 
-def run_sync_bot(driver=None):
+def run_sync_bot(driver=None, skip_download=False):
     """
     Ejecuta el bot de sincronización completo.
     Retorna (total_stats, nuevos_skus_detectados)
@@ -953,43 +1017,53 @@ def run_sync_bot(driver=None):
     todos_los_nuevos_skus = []
     descargas_exitosas = {}
     errores_descarga = []
+    valor_dolar = 970.0 # Valor por defecto
     
     try:
-        # FASE 1: DESCARGAS
-        print("\nPASO 1.1: INICIO DE SESIÓN (REINTENTOS ACTIVADOS)")
-        login_success = False
-        max_intentos = 3
-        for intento in range(1, max_intentos + 1):
-            print(f"🤖 Intento de login #{intento} de {max_intentos}...")
-            if login_intcomex(driver, USERNAME, PASSWORD):
-                login_success = True
-                break
-            else:
-                print(f"✗ Intento #{intento} fallido.")
-                if intento < max_intentos:
-                    print("🔄 Reintentando en 5 segundos...")
-                    time.sleep(5)
-        
-        if not login_success:
-            print("❌ Todos los intentos de login fallaron.")
-            if must_close_driver: driver.quit()
-            raise LoginException("Fallo de autenticación tras 3 intentos con PyAutoGUI")
-        
-        print("\nPASO 1.2: OBTENER VALOR DEL DÓLAR")
-        valor_dolar = obtener_dolar_web(driver)
-        
-        print("\nPASO 1.3: DESCARGA DE CSVs")
-        for cat_name, cat_url in URLS.items():
-            try:
-                csv_file = download_category_csv(driver, cat_name, cat_url)
-                if csv_file and os.path.exists(csv_file):
-                    descargas_exitosas[cat_name] = csv_file
+        if skip_download:
+            print("\n📂 MODO LOCAL: Saltando login y descargas. Usando archivos existentes...")
+            for cat_name in URLS.keys():
+                csv_path = os.path.join(DOWNLOAD_DIR, f"{cat_name}.csv")
+                if os.path.exists(csv_path):
+                    descargas_exitosas[cat_name] = csv_path
                 else:
+                    print(f"  ⚠ CSV local no encontrado para: {cat_name}")
+        else:
+            # FASE 1: DESCARGAS
+            print("\nPASO 1.1: INICIO DE SESIÓN (REINTENTOS ACTIVADOS)")
+            login_success = False
+            max_intentos = 3
+            for intento in range(1, max_intentos + 1):
+                print(f"🤖 Intento de login #{intento} de {max_intentos}...")
+                if login_intcomex(driver, USERNAME, PASSWORD):
+                    login_success = True
+                    break
+                else:
+                    print(f"✗ Intento #{intento} fallido.")
+                    if intento < max_intentos:
+                        print("🔄 Reintentando en 5 segundos...")
+                        time.sleep(5)
+            
+            if not login_success:
+                print("❌ Todos los intentos de login fallaron.")
+                if must_close_driver: driver.quit()
+                raise LoginException("Fallo de autenticación tras 3 intentos con PyAutoGUI")
+            
+            print("\nPASO 1.2: OBTENER VALOR DEL DÓLAR")
+            valor_dolar = obtener_dolar_web(driver)
+            
+            print("\nPASO 1.3: DESCARGA DE CSVs")
+            for cat_name, cat_url in URLS.items():
+                try:
+                    csv_file = download_category_csv(driver, cat_name, cat_url)
+                    if csv_file and os.path.exists(csv_file):
+                        descargas_exitosas[cat_name] = csv_file
+                    else:
+                        errores_descarga.append(cat_name)
+                except Exception as e:
+                    print(f"  ⚠ Error descargando {cat_name}: {e}")
                     errores_descarga.append(cat_name)
-            except Exception as e:
-                print(f"  ⚠ Error descargando {cat_name}: {e}")
-                errores_descarga.append(cat_name)
-            time.sleep(2)
+                time.sleep(2)
 
     except Exception as e:
         print(f"\n✗ Error crítico en descargas: {e}")

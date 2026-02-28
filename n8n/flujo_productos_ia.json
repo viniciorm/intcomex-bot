@@ -1,0 +1,212 @@
+{
+  "name": "Enriquecimiento de Productos E-commerce IA (Solo Texto)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days"
+            }
+          ]
+        }
+      },
+      "id": "e45dcaf6-2e21-4f9c-9c94-0ab1daab4e1d",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "product",
+        "operation": "getAll",
+        "limit": 50,
+        "options": {}
+      },
+      "id": "c8b417bb-e024-411a-8cfa-89a3ad92a353",
+      "name": "WooCommerce - Obtener Productos",
+      "type": "n8n-nodes-base.wooCommerce",
+      "typeVersion": 1,
+      "position": [
+        420,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ ($json.meta_data || []).find(m => m.key === 'n8n_mejorado')?.value || 'false' }}",
+              "operation": "notEqual",
+              "value2": "true"
+            }
+          ]
+        }
+      },
+      "id": "Filter_n8n_mejorado",
+      "name": "Filtrar Pendientes",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        740,
+        300
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "b3fbd717-daca-4a11-a8df-ba08d48a3136",
+      "name": "Loop",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        860,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 2,
+        "unit": "seconds"
+      },
+      "id": "wait-node-id",
+      "name": "Espera 2s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        970,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  \"model\": \"gpt-4o-mini\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"Eres un redactor experto en e-commerce. Responde ÚNICAMENTE con código HTML (p, strong, ul, li). No uses Markdown ni bloques de código. Empieza directamente con la descripción.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": 'Nombre: ' + ($('Loop').item.json.name || '') + '\\nCategoría: ' + ($('Loop').item.json.categories && $('Loop').item.json.categories[0] ? $('Loop').item.json.categories[0].name : '') + '\\nDescripción actual: ' + ($('Loop').item.json.description || '')\n    }\n  ]\n}) }}",
+        "options": {}
+      },
+      "id": "1ab7d9ac-ef30-4e4b-944d-fedea434b97d",
+      "name": "OpenAI - Texto",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1150,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "product",
+        "operation": "update",
+        "productId": "={{ $('Loop').item.json.id }}",
+        "updateFields": {
+          "description": "={{ $json.choices[0].message.content }}",
+          "metadata": {
+            "metadataProperties": [
+              {
+                "key": "n8n_mejorado",
+                "value": "true"
+              }
+            ]
+          }
+        }
+      },
+      "id": "e2fde4cc-ec82-4aa8-a0e2-dfbd2d64a856",
+      "name": "WooCommerce - Actualizar",
+      "type": "n8n-nodes-base.wooCommerce",
+      "typeVersion": 1,
+      "position": [
+        1400,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "WooCommerce - Obtener Productos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WooCommerce - Obtener Productos": {
+      "main": [
+        [
+          {
+            "node": "Filtrar Pendientes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtrar Pendientes": {
+      "main": [
+        [
+          {
+            "node": "Loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Espera 2s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Espera 2s": {
+      "main": [
+        [
+          {
+            "node": "OpenAI - Texto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI - Texto": {
+      "main": [
+        [
+          {
+            "node": "WooCommerce - Actualizar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WooCommerce - Actualizar": {
+      "main": [
+        [
+          {
+            "node": "Loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

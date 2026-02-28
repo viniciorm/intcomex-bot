@@ -31,7 +31,12 @@ CATEGORY_URLS = {
     # "Impresoras_Laser": "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.laser?r=True",
     # "Impresoras_MFP": "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.mfp?r=True",
     # "Scanners": "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.scanner?r=True",
-    # "All_in_One": "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.allone?r=True"
+    # "All_in_One": "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.allone?r=True",
+    # "Discos_Duros_Internos": "https://store.intcomex.com/es-XCL/Products/ByCategory/sto.inthd?r=True",
+    # "Discos_Duros_Externos": "https://store.intcomex.com/es-XCL/Products/ByCategory/sto.exthd?r=True",
+    # "Discos_SSD_Internos": "https://store.intcomex.com/es-XCL/Products/ByCategory/sto.ssd?r=True",
+    # "Discos_SSD_Externos": "https://store.intcomex.com/es-XCL/Products/ByCategory/sto.ssdext?r=True",
+    # "Procesadores": "https://store.intcomex.com/es-XCL/Products/ByCategory/cco.cpu?r=True"
 }
 
 # Crear carpetas necesarias
@@ -170,15 +175,11 @@ def run_image_bot(skus_to_process=None):
             
             search_url = SEARCH_URL_TEMPLATE.format(sku=sku)
             driver.get(search_url)
-            time.sleep(1) # Cortesía con el servidor
+            time.sleep(3) # Aumentado para permitir carga dinámica
             
             try:
                 # Caso A: Estamos en una lista de resultados
                 # Caso B: Redireccionó directamente a la ficha del producto
-                
-                # Intentamos encontrar un anchor con el SKU o la imagen directamente
-                # Selector común para el catálogo: a[data-sku='SKU']
-                # Selector común para la ficha: img#product-image (o similar)
                 
                 img_src = None
                 
@@ -189,22 +190,31 @@ def run_image_bot(skus_to_process=None):
                     img_src = img_el.get_attribute("data-src") or img_el.get_attribute("src")
                 except:
                     # 2. Intentar buscar cualquier imagen que parezca la principal si redirigió
-                    # A veces la clase es .product-image o similar
+                    # Incluimos selectores del detalle y el CDN externo
                     selectors = [
-                        "img.product-image", 
+                        "img#product-main-large-image", # Detalle
+                        "img.ws_images_style",           # Detalle (CDN)
+                        "img.product-image",             # Genérico
                         "img[alt*='" + sku + "']",
                         ".product-view-container img",
-                        "a[data-sku] img"
+                        "a[data-sku] img",
+                        ".img-tag img"                   # Grilla
                     ]
                     for sel in selectors:
                         try:
                             els = driver.find_elements(By.CSS_SELECTOR, sel)
-                            if els:
-                                img_src = els[0].get_attribute("data-src") or els[0].get_attribute("src")
-                                if img_src: break
+                            for el in els:
+                                src = el.get_attribute("data-src") or el.get_attribute("src")
+                                if src and "http" in src:
+                                    img_src = src
+                                    break
+                            if img_src: break
                         except: continue
 
-                if img_src and "intcomex" in img_src:
+                # Validación relajada: cualquier URL válida que no sea un placeholder
+                is_valid_img = img_src and any(domain in img_src for domain in ["intcomex", "1worldsync", "cs.1worldsync", "cdn"])
+                
+                if img_src and is_valid_img:
                     local_path = download_image(img_src, sku)
                     if local_path:
                         state[sku].update({
@@ -223,9 +233,9 @@ def run_image_bot(skus_to_process=None):
                         with open(MAPA_IMAGENES_PATH, 'w', encoding='utf-8') as f:
                             json.dump(image_map, f, indent=4, ensure_ascii=False)
                     else:
-                        print(f"    ✗ Error al descargar imagen encontrada.")
+                        print(f"    ✗ Error al descargar imagen encontrada: {img_src}")
                 else:
-                    print(f"    ✗ No se encontró imagen para {sku}.")
+                    print(f"    ✗ No se encontró imagen válida para {sku}. (Detectado: {img_src if img_src else 'Nada'})")
                     state[sku]["estado_subida"] = "no_encontrado_en_busqueda"
                     save_state(state)
 

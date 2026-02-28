@@ -12,6 +12,7 @@ from image_bot import run_image_bot
 from image_uploader import run_image_uploader
 from inventory_cleaner import run_inventory_cleaner
 from sync_bot import run_sync_bot, init_woocommerce_api, LoginException
+from ia_webhook_trigger import run_ia_webhook_trigger
 
 # Importar credenciales
 try:
@@ -181,7 +182,7 @@ def enviar_reporte_consolidado(resumen, error_critico=None):
 
 def main():
     # Detectar modo de ejecución por argumentos
-    # python main_orchestrator.py [all|sync|images|upload]
+    # python main_orchestrator.py [all|sync|images|upload|clean|ia|local]
     mode = "all"
     if len(sys.argv) > 1:
         mode = sys.argv[1].lower()
@@ -194,18 +195,21 @@ def main():
         "sync": {"status": "SKIPPED", "stats": {}},
         "imagenes": {"descargadas": 0},
         "uploader": {"vinculadas": 0},
-        "cleaner": {"reactivados": 0, "stock_bajo": 0, "fuera_catalogo": 0}
+        "cleaner": {"reactivados": 0, "stock_bajo": 0, "fuera_catalogo": 0},
+        "ia": {"enviados": 0}
     }
     
     error_global = None
 
     try:
-        # FASE A: Sincronización (Solo si mode es 'all' o 'sync')
-        if mode in ['all', 'sync']:
+        # FASE A: Sincronización (Solo si mode es 'all', 'sync' o 'local')
+        if mode in ['all', 'sync', 'local']:
             try:
-                print("\n[FASE A] Iniciando Sincronización de Precios/Stock...")
-                # Sync Bot requiere login (Selenium)
-                stats, nuevos = run_sync_bot()
+                skip_dl = (mode == 'local')
+                msg_local = " (MODO LOCAL: Sin descargas)" if skip_dl else ""
+                print(f"\n[FASE A] Iniciando Sincronización de Precios/Stock{msg_local}...")
+                # Sync Bot requiere login si no es local
+                stats, nuevos = run_sync_bot(skip_download=skip_dl)
                 resumen["sync"]["status"] = "OK"
                 resumen["sync"]["stats"] = stats
                 resumen["sync"]["nuevos_skus"] = nuevos
@@ -236,6 +240,9 @@ def main():
                              if (data.get("tiene_imagen") and not data.get("subido_a_woo")) 
                              or data.get("pendiente_sync_woo")]
             
+            # En modo local, forzamos que si tiene imagen local y no esta en woo, vaya a upload
+            # Esto ya está cubierto arriba, pero aseguramos
+            
             if pending_upload:
                 print(f"\n[FASE C] Iniciando Sincronización de {len(pending_upload)} productos...")
                 procesados = run_image_uploader()
@@ -248,6 +255,12 @@ def main():
             print("\n[FASE D] Iniciando Limpieza de Inventario...")
             clean_stats = run_inventory_cleaner()
             resumen["cleaner"] = clean_stats
+
+        # FASE E: Disparar Webhook de IA (n8n)
+        if mode in ['all', 'ia']:
+            print("\n[FASE E] Iniciando Webhook de Inteligencia Artificial...")
+            total_skus_ia = run_ia_webhook_trigger()
+            resumen["ia"]["enviados"] = total_skus_ia
 
     except Exception as e:
         error_global = str(e)
