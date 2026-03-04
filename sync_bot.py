@@ -26,6 +26,11 @@ import random
 import sys
 import pyautogui
 import pyperclip
+import platform
+
+# Detectar Sistema Operativo para atajos de teclado
+OS_TYPE = platform.system()
+CONTROL_KEY = 'command' if OS_TYPE == 'Darwin' else 'ctrl'
 
 class LoginException(Exception):
     """Excepción personalizada para fallos de login."""
@@ -514,7 +519,7 @@ def login_intcomex(driver, username, password):
         
         # 4. Limpiar campo (Ctrl + A + Backspace)
         print("⌨️  Limpiando campo...")
-        pyautogui.hotkey('ctrl', 'a')
+        pyautogui.hotkey(CONTROL_KEY, 'a')
         time.sleep(0.3)
         pyautogui.press('backspace')
         time.sleep(0.5)
@@ -523,7 +528,7 @@ def login_intcomex(driver, username, password):
         print(f"⌨️  Pegando usuario desde portapapeles...")
         pyperclip.copy(username)
         time.sleep(0.5)
-        pyautogui.hotkey('ctrl', 'v')
+        pyautogui.hotkey(CONTROL_KEY, 'v')
         time.sleep(0.8)
         
         # 6. Saltar a Contraseña (Tab)
@@ -535,7 +540,7 @@ def login_intcomex(driver, username, password):
         print("⌨️  Pegando contraseña...")
         pyperclip.copy(password)
         time.sleep(0.5)
-        pyautogui.hotkey('ctrl', 'v')
+        pyautogui.hotkey(CONTROL_KEY, 'v')
         time.sleep(0.8)
         
         # 8. Entrar (ENTER)

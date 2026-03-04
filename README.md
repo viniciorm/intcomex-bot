@@ -22,10 +22,12 @@ El bot utiliza un flujo integrado en `sync_bot.py` enfocado en la resiliencia:
 4.  **Fase de Limpieza (Cleaner)**:
     *   **Gestión de Inventario**: Si el stock es <= 2, el producto pasa a borrador (`draft`) automáticamente.
     *   **Historial Inteligente**: Mantiene registro de por qué un producto fue ocultado (stock vs fuera de catálogo).
-5.  **Fase de IA (Enriquecimiento Webhook)**:
-    *   **Trigger Local**: `ia_webhook_trigger.py` envía lotes de 50 SKUs a n8n.
-    *   **Enriquecimiento**: n8n usa `gpt-4o-mini` para generar descripciones HTML y actualiza Woo.
-    *   **Reporte Final**: Envía un correo consolidado con todas las fases (incluyendo IA).
+5.  **Fase de IA (Enriquecimiento v2 - Lite)**:
+    *   **Control Local**: `ia_webhook_trigger.py` orquestra el proceso secuencial (uno a uno).
+    *   **Estado Local**: Mantiene el registro de productos mejorados en `estado_productos.json` (`ia_mejorado: true`).
+    *   **Transformer Stateless**: n8n actúa únicamente como puente hacia OpenAI, sin tocar WooCommerce.
+    *   **Actualización Directa**: Python actualiza la descripción en WooCommerce mediante la API (reducir 503s).
+    *   **Audit Logic**: Herramientas para verificar el contenido real en WooCommerce y sincronizar el estado local.
 
 ## 🖼️ Bot de Imágenes (Independiente)
 
@@ -36,12 +38,13 @@ Para la descarga física de imágenes, el proyecto incluye `image_bot.py`:
 4.  **Formato**: Nombra los archivos como `SKU_001.jpg`, `SKU_002.jpg`, etc.
 5.  **Registro**: Actualiza `estado_productos.json` con las rutas locales y el estado de descarga.
 
-## 🧠 Bot de Inteligencia Artificial (IA)
+## 🧠 Bot de Inteligencia Artificial (IA) v2 (Lite)
 
-Diseñado para enriquecer descripciones existentes:
-1.  **Activación**: Requiere que n8n esté corriendo (Docker) con el flujo `flujo_productos_ia_webhook.json` activo.
-2.  **Lógica**: Procesa solo productos con `subido_a_woo: true` en `estado_productos.json`.
-3.  **Seguridad**: Incluye reintentos automáticos y pausas de 2s para evitar bloqueos de API.
+Rediseñado para máxima estabilidad y control de estado fuera de WooCommerce:
+1.  **Activación**: Requiere n8n (Docker) con `n8n/flujo_ia_lite.json` activo (Published).
+2.  **Lógica Secuencial**: Procesa productos uno por uno con pausas de seguridad (3s).
+3.  **Estado Robusto**: Si el proceso se interrumpe, sabe exactamente dónde quedó leyendo `estado_productos.json`.
+4.  **Auditoría**: `audit_ia_content.py` verifica el HTML real en la tienda para evitar duplicidad de costos.
 
 ## 🚀 Configuración Inicial
 
@@ -83,8 +86,9 @@ Si prefieres un control granular o depuración específica, puedes usar los bots
 | `image_bot.py` | Descarga de imágenes por SKU desde el portal | `python image_bot.py` |
 | `image_uploader.py` | Sube y vincula imágenes locales a WooCommerce | `python image_uploader.py` |
 | `inventory_cleaner.py`| Gestión de stock seguro y fuera de catálogo | `python inventory_cleaner.py` |
-| `ia_webhook_trigger.py`| Gatilla el flujo de IA en n8n por lotes | `python ia_webhook_trigger.py` |
-| `scraper_intcomex.py`| Extracción de prueba (Scraper simplificado) | `python scraper_intcomex.py` |
+| `ia_webhook_trigger.py`| Orquestador de IA secuencial (Actualiza Woo) | `python ia_webhook_trigger.py` |
+| `audit_ia_content.py` | Audita descripciones HTML reales en Woo | `python audit_ia_content.py` |
+| `migrate_ia_state.py` | Sincroniza metadatos de IA a estado local | `python migrate_ia_state.py` |
 
 ### 3. Herramientas de Utilidad
 - `ver_csv.py`: Inspecciona la estructura de los CSV descargados.

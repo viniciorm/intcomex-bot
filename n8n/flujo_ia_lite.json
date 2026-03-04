@@ -1,0 +1,82 @@
+    {
+        "name": "IA Transformer (Lite)",
+        "nodes": [
+            {
+                "parameters": {
+                    "httpMethod": "POST",
+                    "path": "ia-transformer",
+                    "responseMode": "responseNode",
+                    "options": {}
+                },
+                "id": "webhook-node",
+                "name": "Webhook",
+                "type": "n8n-nodes-base.webhook",
+                "typeVersion": 1,
+                "position": [
+                    250,
+                    300
+                ]
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "https://api.openai.com/v1/chat/completions",
+                    "authentication": "genericCredentialType",
+                    "genericAuthType": "httpHeaderAuth",
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ JSON.stringify({\n  \"model\": \"gpt-4o-mini\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"Eres un redactor experto en e-commerce. Responde ÚNICAMENTE con código HTML (p, strong, ul, li). No uses Markdown ni bloques de código. Empieza directamente con la descripción.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": 'Nombre: ' + ($json.body.nombre || '') + '\\nDescripción actual: ' + ($json.body.descripcion || '')\n    }\n  ]\n}) }}",
+                    "options": {
+                        "retryOnFail": true,
+                        "maxTries": 5,
+                        "waitBetweenTries": 5000
+                    }
+                },
+                "id": "openai-node",
+                "name": "OpenAI - Redactar",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.1,
+                "position": [
+                    500,
+                    300
+                ]
+            },
+            {
+                "parameters": {
+                    "options": {}
+                },
+                "id": "respond-node",
+                "name": "Responder a Python",
+                "type": "n8n-nodes-base.respondToWebhook",
+                "typeVersion": 1,
+                "position": [
+                    750,
+                    300
+                ]
+            }
+        ],
+        "connections": {
+            "Webhook": {
+                "main": [
+                    [
+                        {
+                            "node": "OpenAI - Redactar",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "OpenAI - Redactar": {
+                "main": [
+                    [
+                        {
+                            "node": "Responder a Python",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            }
+        }
+    }
