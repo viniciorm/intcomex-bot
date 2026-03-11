@@ -932,6 +932,27 @@ def sincronizar_csv(archivo_csv, category_name, valor_dolar):
                     continue
             # -------------------------------
             
+            description = str(row[desc_col]) if desc_col and pd.notna(row[desc_col]) else "Sin descripción"
+            
+            # --- FILTRADO GENERALIZADO POR SUFIJO Y LIQUIDACIONES ---
+            sku_upper = sku.upper()
+            name_upper = description.upper()
+            
+            # Excluir SKUs con sufijos especiales (ej: -B1, -RC, -EX, -S)
+            # Buscamos la presencia de un guión que indica una variante
+            is_special_suffix = '-' in sku_upper
+            
+            # Excluir Liquidaciones y Ofertas (términos solicitados por el usuario)
+            is_liquidation = 'LIQUIDACION' in name_upper or 'OFERTA' in name_upper
+            
+            if is_special_suffix or is_liquidation:
+                if stats["filtrados"] < 10: # Loguear algunos ejemplos más
+                    motivo = f"Sufijo especial ({sku_upper})" if is_special_suffix else "Liquidación/Oferta"
+                    print(f"    🚫 Filtrado por {motivo}: SKU {sku} - {description[:40]}...")
+                stats["filtrados"] += 1
+                continue
+            # --------------------------------------------------------
+            
             precio_usd = clean_price_to_float(row[price_col])
             if precio_usd is None or precio_usd <= 0: continue
             

@@ -13,6 +13,8 @@ from image_uploader import run_image_uploader
 from inventory_cleaner import run_inventory_cleaner
 from sync_bot import run_sync_bot, init_woocommerce_api, LoginException
 from ia_webhook_trigger import run_ia_webhook_trigger
+from generate_stats import generate_daily_snapshot
+from system_health import run_health_check
 
 # Importar credenciales
 try:
@@ -163,6 +165,17 @@ def enviar_reporte_consolidado(resumen, error_critico=None):
             </div>
         """
 
+        # Fase E: IA
+        ia_stats = resumen.get("ia", {})
+        cuerpo_html += f"""
+            <div class='stat-box'>
+                <h3>Fase E: Enriquecimiento IA (n8n)</h3>
+                <ul>
+                    <li>Productos Procesados Correctamente: {ia_stats.get('enviados', 0)}</li>
+                </ul>
+            </div>
+        """
+
         cuerpo_html += f"""
             <p style='font-size: 0.8em; color: #7f8c8d; margin-top: 30px;'>
                 Orquestador Intcomex v2.1.0 - tupartnerti.cl
@@ -266,6 +279,11 @@ def main():
         error_global = str(e)
         print(f"\n❌ ERROR CRÍTICO: {error_global}")
     finally:
+        # Generar estadísticas para el Dashboard automáticamente
+        print("\n📈 Actualizando Dashboard de KPIs...")
+        run_health_check()
+        generate_daily_snapshot()
+        
         # Enviar reporte final siempre que haya ocurrido algo o haya un error
         if mode != "none":
             enviar_reporte_consolidado(resumen, error_critico=error_global)
