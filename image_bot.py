@@ -211,8 +211,12 @@ def run_image_bot(skus_to_process=None):
                             if img_src: break
                         except: continue
 
-                # Validación relajada: cualquier URL válida que no sea un placeholder
+                # Validación relajada: cualquier URL válida que no sea un placeholder genérico
+                # Excluir imágenes genéricas de Intcomex (ej: "noimage.jpg")
                 is_valid_img = img_src and any(domain in img_src for domain in ["intcomex", "1worldsync", "cs.1worldsync", "cdn"])
+                if is_valid_img and any(blocked in img_src.lower() for blocked in ["noimage", "no-image"]):
+                    is_valid_img = False
+                    print(f"    ⚠ Imagen ignorada por ser un placeholder genérico: {img_src}")
                 
                 if img_src and is_valid_img:
                     local_path = download_image(img_src, sku)

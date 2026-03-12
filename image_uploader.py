@@ -228,7 +228,15 @@ def run_image_uploader():
     # 1. Detectar qué necesita ser sincronizado
     # - Productos con pendiente_sync_woo=True
     # - Productos con tiene_imagen=True y subido_a_woo=False
-    skus_to_sync = [sku for sku, data in state.items() if data.get("pendiente_sync_woo") or (data.get("tiene_imagen") and not data.get("subido_a_woo"))]
+    # - Productos sin imagen que no tienen el placeholder asignado
+    skus_to_sync = []
+    for sku, data in state.items():
+        needs_sync = data.get("pendiente_sync_woo")
+        needs_image = data.get("tiene_imagen") and not data.get("subido_a_woo")
+        needs_placeholder = not data.get("tiene_imagen") and not data.get("placeholder_personalizado") and data.get("stock", 0) > 0
+        
+        if needs_sync or needs_image or needs_placeholder:
+            skus_to_sync.append(sku)
     
     if not skus_to_sync:
         print("[OK] Todo el estado local ya está sincronizado con WooCommerce.")
@@ -279,6 +287,26 @@ def run_image_uploader():
                         state[sku]["woo_image_url"] = media_url
             else:
                 print(f"    [!] Imagen local no encontrada para {sku}")
+                
+        # C. Asignar Placeholder Personalizado si no tiene imagen local
+        elif not data.get("tiene_imagen") and not data.get("placeholder_personalizado"):
+            print(f"    [INFO] Asignando Placeholder Personalizado...")
+            
+            # Buscamos el media_id via wp_rest para no duplicar imagen
+            # Optimizamos a usar el mismo script si es necesario, o enviarlo via source url
+            try:
+                # Custom URL for Tu Partner TI placeholder
+                custom_url = "https://tupartnerti.cl/tienda/wp-content/uploads/2026/03/Flow_6f1163a766.jpeg"
+                
+                payload = {"images": [{"src": custom_url}]}
+                res_pl = wcapi.put(f"products/{product_id}", data=payload)
+                if res_pl.status_code == 200:
+                    print("      [OK] Placeholder asignado en WooCommerce.")
+                    state[sku]["placeholder_personalizado"] = True
+                else:
+                    print(f"      [ERROR] Falló asignación placeholder HTTP {res_pl.status_code}")
+            except Exception as e:
+                print(f"      [EXCEPTION] Al asignar placeholder: {e}")
 
         # Marcar como sincronizado
         state[sku]["pendiente_sync_woo"] = False
