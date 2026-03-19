@@ -121,5 +121,21 @@ Configurables dentro de `sync_bot.py`:
 - **Validación de Precios**: Manejo avanzado de formatos numéricos CLP (puntos de miles y comas decimales).
 - **Control de Stock**: Se mapea el stock real y estados especiales (ej: "Más de 20").
 
+## 🌐 Requisitos del Servidor (WordPress/PHP)
+
+Para asegurar que la API de WooCommerce responda correctamente a las peticiones del bot, el servidor de WordPress **DEBE** tener al menos la siguiente configuración en PHP:
+
+| Parámetro | Valor Recomendado | Motivo |
+| :--- | :--- | :--- |
+| `memory_limit` | **512M** | Evita errores 500 por falta de memoria al procesar productos. |
+| `max_execution_time` | **300** | Permite que las subidas de imágenes no se corten por tiempo. |
+| `upload_max_filesize` | **64M** | Permite subir fotos de productos en alta resolución. |
+| `post_max_size` | **64M** | Debe ser igual o mayor a `upload_max_filesize`. |
+| `max_input_time` | **300** | Tiempo adicional para procesar datos de entrada de la API. |
+
+> [!TIP]
+> Si persisten los errores 500, verifica el archivo `wp-config.php` y asegúrate de que `define('WP_MEMORY_LIMIT', '512M');` esté presente.
+
 ## 📄 Licencia
 Este proyecto es privado y confidencial.
+
