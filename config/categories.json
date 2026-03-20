@@ -1,0 +1,60 @@
+{
+    "URLS": {
+        "Notebooks": "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.notebook?r=True",
+        "Monitores": "https://store.intcomex.com/es-XCL/Products/ByCategory/mnt.monitor?r=True",
+        "Monitores_TV": "https://store.intcomex.com/es-XCL/Products/ByCategory/mnt.tv?r=True",
+        "Desktop": "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.desktop?r=True",
+        "Tablets": "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.tablet?r=True",
+        "Impresoras_Inkjet": "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.inkjet?r=True",
+        "Impresoras_Label": "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.label?r=True",
+        "Impresoras_Laser": "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.laser?r=True",
+        "Impresoras_MFP": "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.mfp?r=True",
+        "Scanners": "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.scanner?r=True",
+        "All_in_One": "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.allone?r=True",
+        "Discos_Duros_Internos": "https://store.intcomex.com/es-XCL/Products/ByCategory/sto.inthd?r=True",
+        "Discos_Duros_Externos": "https://store.intcomex.com/es-XCL/Products/ByCategory/sto.exthd?r=True",
+        "Discos_SSD_Internos": "https://store.intcomex.com/es-XCL/Products/ByCategory/sto.ssd?r=True",
+        "Discos_SSD_Externos": "https://store.intcomex.com/es-XCL/Products/ByCategory/sto.ssdext?r=True",
+        "Procesadores": "https://store.intcomex.com/es-XCL/Products/ByCategory/cco.cpu?r=True",
+        "Memoria_DRAM_General": "https://store.intcomex.com/es-XCL/Products/ByCategory/mem.dramgen?r=True",
+        "Memoria_DRAM_Propietaria": "https://store.intcomex.com/es-XCL/Products/ByCategory/mem.dramprop?r=True",
+        "Proyectores": "https://store.intcomex.com/es-XCL/Products/ByCategory/prj.projector?r=True",
+        "Pantallas_Proyeccion": "https://store.intcomex.com/es-XCL/Products/ByCategory/prj.screen?r=True",
+        "Videoconferencia": "https://store.intcomex.com/es-XCL/Products/ByCategory/com.video?r=True",
+        "Vigilancia_DVR": "https://store.intcomex.com/es-XCL/Products/ByCategory/vis.dvr?r=True",
+        "Vigilancia_Kits": "https://store.intcomex.com/es-XCL/Products/ByCategory/vis.kit?r=True",
+        "Vigilancia_Cámaras_IP": "https://store.intcomex.com/es-XCL/Products/ByCategory/vis.netcam?r=True",
+        "Vigilancia_NVR": "https://store.intcomex.com/es-XCL/Products/ByCategory/vis.nvr?r=True"
+    },
+
+
+    "CATEGORY_VALIDATION": {
+        "Notebooks": ["Notebook", "Portátiles", "Laptops"],
+        "Monitores": ["Monitores", "Monitor", "Pantallas"],
+        "Monitores_TV": ["Televisores", "TV", "Monitores"],
+        "Desktop": ["Desktop", "Computadores", "CPU"],
+        "Tablets": ["Tablet", "Tabletas"],
+        "Impresoras_Inkjet": ["Inkjet", "Inyección"],
+        "Impresoras_Label": ["Label", "Etiquetas"],
+        "Impresoras_Laser": ["Laser", "Láser"],
+        "Impresoras_MFP": ["Multifuncionales", "Multifunción", "MFP"],
+        "Scanners": ["Scanner", "Escáner"],
+        "All_in_One": ["Todo-en-Uno", "All-in-One"],
+        "Discos_Duros_Internos": ["Disco Duro Interno", "HDD", "Disco Duro", "Almacenamiento Interno"],
+        "Discos_Duros_Externos": ["Disco Duro Externo", "Storage Externo"],
+        "Discos_SSD_Internos": ["SSD", "Unidad de Estado Sólido", "Solid State", "NVMe", "SATA", "PCIe", "M.2"],
+        "Discos_SSD_Externos": ["SSD Externo", "Solid State Drive Externo", "Almacenamiento Externo"],
+        "Procesadores": ["Procesador", "CPU", "Microprocesador", "Processor", "Intel", "AMD"],
+        "Memoria_DRAM_General": ["Memoria", "RAM", "DRAM", "DIMM", "SODIMM", "DDR"],
+        "Memoria_DRAM_Propietaria": ["Memoria", "RAM", "DRAM", "DIMM", "SODIMM", "DDR", "Propietaria"],
+        "Proyectores": ["Proyector", "Projector", "Video Proyector"],
+        "Pantallas_Proyeccion": ["Pantalla", "Screen", "Telón", "Proyección"],
+        "Videoconferencia": ["Cámara", "Video", "Conferencia", "Webcam", "Videoconferencia"],
+        "Vigilancia_DVR": ["DVR", "Grabador", "Vigilancia", "Video"],
+        "Vigilancia_Kits": ["Kit", "Vigilancia", "Seguridad", "Cámaras"],
+        "Vigilancia_Cámaras_IP": ["Cámara IP", "Red", "IP Cam", "Vigilancia", "Netcam"],
+        "Vigilancia_NVR": ["NVR", "Grabador de Red", "Vigilancia", "IP"]
+    }
+
+
+}

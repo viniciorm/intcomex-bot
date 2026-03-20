@@ -24,8 +24,6 @@ from email.mime.multipart import MIMEMultipart
 from webdriver_manager.chrome import ChromeDriverManager
 import random
 import sys
-import pyautogui
-import pyperclip
 import platform
 
 # Detectar Sistema Operativo para atajos de teclado
@@ -61,47 +59,23 @@ LOGIN_URL = "https://store.intcomex.com/Account/Login"
 USERNAME = INTCOMEX_USERNAME
 PASSWORD = INTCOMEX_PASSWORD
 
-# Diccionario de categorías con URLs
-URLS = {
-    "Notebooks": "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.notebook?r=True",
-    "Monitores": "https://store.intcomex.com/es-XCL/Products/ByCategory/mnt.monitor?r=True",
-    "Monitores_TV": "https://store.intcomex.com/es-XCL/Products/ByCategory/mnt.tv?r=True",
-    "Desktop": "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.desktop?r=True",
-    "Tablets": "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.tablet?r=True",
-    "Impresoras_Inkjet": "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.inkjet?r=True",
-    "Impresoras_Label": "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.label?r=True",
-    "Impresoras_Laser": "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.laser?r=True",
-    "Impresoras_MFP": "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.mfp?r=True",
-    "Scanners": "https://store.intcomex.com/es-XCL/Products/ByCategory/prt.scanner?r=True",
-    "All_in_One": "https://store.intcomex.com/es-XCL/Products/ByCategory/cpt.allone?r=True",
-    "Discos_Duros_Internos": "https://store.intcomex.com/es-XCL/Products/ByCategory/sto.inthd?r=True",
-    "Discos_Duros_Externos": "https://store.intcomex.com/es-XCL/Products/ByCategory/sto.exthd?r=True",
-    "Discos_SSD_Internos": "https://store.intcomex.com/es-XCL/Products/ByCategory/sto.ssd?r=True",
-    "Discos_SSD_Externos": "https://store.intcomex.com/es-XCL/Products/ByCategory/sto.ssdext?r=True",
-    "Procesadores": "https://store.intcomex.com/es-XCL/Products/ByCategory/cco.cpu?r=True"
-}
+# --- Configuración de Categorías ---
+CONFIG_PATH = os.path.join("config", "categories.json")
 
-# --- Validación de Categorías ---
-# Este diccionario mapea la categoría de URLS a palabras clave permitidas
-# en las columnas 'Categoría' o 'Subcategoría' del CSV de Intcomex.
-CATEGORY_VALIDATION = {
-    "Notebooks": ["Notebook", "Portátiles", "Laptops"],
-    "Monitores": ["Monitores", "Monitor", "Pantallas"],
-    "Monitores_TV": ["Televisores", "TV", "Monitores"],
-    "Desktop": ["Desktop", "Computadores", "CPU"],
-    "Tablets": ["Tablet", "Tabletas"],
-    "Impresoras_Inkjet": ["Inkjet", "Inyección"],
-    "Impresoras_Label": ["Label", "Etiquetas"],
-    "Impresoras_Laser": ["Laser", "Láser"],
-    "Impresoras_MFP": ["Multifuncionales", "Multifunción", "MFP"],
-    "Scanners": ["Scanner", "Escáner"],
-    "All_in_One": ["Todo-en-Uno", "All-in-One"],
-    "Discos_Duros_Internos": ["Disco Duro Interno", "HDD", "Disco Duro", "Almacenamiento Interno"],
-    "Discos_Duros_Externos": ["Disco Duro Externo", "Storage Externo"],
-    "Discos_SSD_Internos": ["SSD", "Unidad de Estado Sólido", "Solid State", "NVMe", "SATA", "PCIe", "M.2"],
-    "Discos_SSD_Externos": ["SSD Externo", "Solid State Drive Externo", "Almacenamiento Externo"],
-    "Procesadores": ["Procesador", "CPU", "Microprocesador", "Processor", "Intel", "AMD"]
-}
+def load_categories():
+    """Carga las categorías y URLs desde el archivo de configuración JSON."""
+    if os.path.exists(CONFIG_PATH):
+        try:
+            with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+                return config.get("URLS", {}), config.get("CATEGORY_VALIDATION", {})
+        except Exception as e:
+            print(f"⚠ Error al cargar {CONFIG_PATH}: {e}")
+    return {}, {}
+
+# Cargar configuración inicial
+URLS, CATEGORY_VALIDATION = load_categories()
+
 
 # --- Configuración WooCommerce ---
 # Las credenciales se importan desde credentials.py
@@ -465,119 +439,116 @@ def escribir_como_humano(element, text):
 
 def login_intcomex(driver, username, password):
     """
-    Inicia sesión en Intcomex usando "Fuerza Bruta" con PyAutoGUI.
-    Asegura el foco usando Shift+Tab y limpia el campo antes de escribir.
+    Inicia sesión en Intcomex usando Selenium de forma automatizada (Headless Compatible).
+    Evita el uso de PyAutoGUI para permitir ejecución en servidores/Docker.
     """
     print(f"🌐 Navegando a: {LOGIN_URL}")
     driver.get(LOGIN_URL)
     
-    # 1. Maximizar y esperar a que la carga sea completa
-    print("📺 Maximizando ventana y esperando 5 segundos...")
-    driver.maximize_window()
-    time.sleep(5)
-    
+    # 1. Esperar a que los elementos estén presentes
+    wait = WebDriverWait(driver, 20)
     try:
-        # Asegurar que estamos en el contenido principal
-        driver.switch_to.default_content()
+        print("🔍 Buscando campos de login...")
         
-        # 2. Asegurar Foco en la ventana (Clic en el cuerpo)
-        print("🖱️  Asegurando foco en la ventana...")
-        driver.execute_script("window.scrollTo(0, 0);")
-        time.sleep(0.5)
-        
-        # Intentar clickear el campo de correo vía Selenium para centrar el foco
-        print("🤖 Intentando foco Selenium en campo correo...")
-        selectors_email = [
-            (By.ID, "email"), # Común en B2C
-            (By.ID, "logonIdentifier"), # Común en B2C
-            (By.ID, "txtEmail"),
+        # Encontrar campo de usuario
+        selectors_user = [
+            (By.ID, "UserName"),
+            (By.ID, "email"),
             (By.NAME, "email"),
-            (By.CSS_SELECTOR, "input[type='email']")
+            (By.CSS_SELECTOR, "input[type='email']"),
+            (By.CSS_SELECTOR, "input[name*='user']")
         ]
         
-        email_element = None
-        for selector in selectors_email:
+        user_field = None
+        for selector in selectors_user:
             try:
-                email_element = driver.find_element(selector[0], selector[1])
-                if email_element.is_displayed():
-                    print(f"   ✓ Encontrado por {selector[0]}='{selector[1]}'")
-                    # Usar click para enfocar
-                    driver.execute_script("arguments[0].focus();", email_element)
-                    time.sleep(0.5)
-                    email_element.click()
-                    break
+                user_field = wait.until(EC.element_to_be_clickable(selector))
+                print(f"   ✓ Campo usuario encontrado por {selector[1]}")
+                break
             except: continue
+            
+        if not user_field:
+            raise Exception("No se encontró el campo de usuario.")
+
+        # Encontrar campo de contraseña
+        selectors_pass = [
+            (By.ID, "Password"),
+            (By.NAME, "password"),
+            (By.CSS_SELECTOR, "input[type='password']")
+        ]
         
+        pass_field = None
+        for selector in selectors_pass:
+            try:
+                pass_field = driver.find_element(selector[0], selector[1])
+                print(f"   ✓ Campo contraseña encontrado por {selector[1]}")
+                break
+            except: continue
+            
+        if not pass_field:
+            raise Exception("No se encontró el campo de contraseña.")
+
+        # Escribir credenciales usando Selenium nativo
+        print("⌨️  Escribiendo credenciales...")
+        user_field.clear()
+        user_field.send_keys(username)
         time.sleep(1)
         
-        # 3. Forzar Foco adicional con Shift+Tab (x2 para re-entrar si es necesario)
-        print("⌨️  Garantizando foco con Shift+Tab...")
-        pyautogui.hotkey('shift', 'tab')
-        time.sleep(0.3)
-        pyautogui.press('tab') # Volver a entrar
-        time.sleep(0.5)
+        pass_field.clear()
+        pass_field.send_keys(password)
+        time.sleep(1)
         
-        # 4. Limpiar campo (Ctrl + A + Backspace)
-        print("⌨️  Limpiando campo...")
-        pyautogui.hotkey(CONTROL_KEY, 'a')
-        time.sleep(0.3)
-        pyautogui.press('backspace')
-        time.sleep(0.5)
+        # Encontrar y clickear botón de login
+        login_btn = None
+        selectors_btn = [
+            (By.ID, "LoginButton"),
+            (By.ID, "next"),
+            (By.CSS_SELECTOR, "button[type='submit']"),
+            (By.XPATH, "//button[contains(text(), 'Entrar') or contains(text(), 'Login')]")
+        ]
         
-        # 5. Escritura de Usuario (Uso de Portapapeles para evitar fallos con '@')
-        print(f"⌨️  Pegando usuario desde portapapeles...")
-        pyperclip.copy(username)
-        time.sleep(0.5)
-        pyautogui.hotkey(CONTROL_KEY, 'v')
-        time.sleep(0.8)
-        
-        # 6. Saltar a Contraseña (Tab)
-        print("⌨️  Saltando a contraseña (TAB)...")
-        pyautogui.press('tab')
-        time.sleep(0.8)
-        
-        # 7. Escribir Contraseña (Uso de Portapapeles para robustez)
-        print("⌨️  Pegando contraseña...")
-        pyperclip.copy(password)
-        time.sleep(0.5)
-        pyautogui.hotkey(CONTROL_KEY, 'v')
-        time.sleep(0.8)
-        
-        # 8. Entrar (ENTER)
-        print("⌨️  Enviando formulario (ENTER)...")
-        pyautogui.press('enter')
-        
-        # 8. Validación Rápida (10 segundos)
-        print("🔍 Validando acceso (espera 10s)...")
-        for i in range(10):
-            # Check por URL (si ya no estamos en login)
-            current_url = driver.current_url.lower()
-            if "login" not in current_url and "account" not in current_url:
-                print(f"✓ Inicio de sesión detectado por URL: {driver.current_url}")
-                return True
-                
-            # Check por elementos de éxito
-            success_indicators = [
-                (By.CSS_SELECTOR, "a[href*='logout']"),
-                (By.CSS_SELECTOR, ".user-menu"),
-                (By.ID, "CountrySelector")
-            ]
-            for indicator in success_indicators:
-                try:
-                    if driver.find_elements(indicator[0], indicator[1]):
-                        print("✓ Inicio de sesión exitoso detectado.")
-                        return True
-                except: pass
+        for selector in selectors_btn:
+            try:
+                login_btn = driver.find_element(selector[0], selector[1])
+                print(f"   ✓ Botón login encontrado por {selector[1]}")
+                break
+            except: continue
             
-            time.sleep(1)
+        if login_btn:
+            driver.execute_script("arguments[0].click();", login_btn)
+        else:
+            pass_field.submit()
             
-        print("✗ No se detectó cambio de estado en 10 segundos.")
+        # Validar acceso
+        print("🔍 Validando acceso...")
+        time.sleep(5)
+        
+        current_url = driver.current_url.lower()
+        if "login" not in current_url and "account" not in current_url:
+            print(f"✓ Inicio de sesión exitoso: {driver.current_url}")
+            return True
+            
+        # Check por elementos de éxito
+        success_indicators = [
+            (By.CSS_SELECTOR, "a[href*='logout']"),
+            (By.CSS_SELECTOR, ".user-menu"),
+            (By.ID, "CountrySelector")
+        ]
+        for indicator in success_indicators:
+            try:
+                if driver.find_elements(indicator[0], indicator[1]):
+                    print("✓ Inicio de sesión exitoso detectado.")
+                    return True
+            except: pass
+            
+        print("✗ No se pudo confirmar el inicio de sesión.")
         return False
         
     except Exception as e:
-        print(f"✗ Error durante la fuerza bruta de login: {e}")
-        driver.save_screenshot("login_error_brute_force.png")
+        print(f"✗ Error durante login Selenium: {e}")
+        driver.save_screenshot("login_error_selenium.png")
         return False
+
 
 
 def wait_for_download(category_name, timeout=30):

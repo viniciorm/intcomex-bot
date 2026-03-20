@@ -1,4 +1,5 @@
-# 🤖 Bot de Sincronización Intcomex -> WooCommerce `v2.1.0`
+# 🤖 Bot de Sincronización Intcomex -> WooCommerce `v2.2.0`
+
 
 Bot de producción diseñado para sincronizar productos desde el catálogo de Intcomex Chile directamente a una tienda WooCommerce mediante API.
 
@@ -10,9 +11,10 @@ Bot de producción diseñado para sincronizar productos desde el catálogo de In
 El bot utiliza un flujo integrado en `sync_bot.py` enfocado en la resiliencia:
 
 1.  **Fase de Acceso**:
-    *   Inicia un navegador Chrome controlado.
-    *   **Login Manual**: El bot espera hasta que el usuario se autentique manualmente en el portal de Intcomex para máxima seguridad y manejo de CAPTCHAs.
+    *   Inicia un navegador Chrome (soporta modo **Headless** para servidores).
+    *   **Login Automatizado**: El bot se autentica automáticamente mediante Selenium (sin PyAutoGUI), permitiendo ejecuciones programadas 24/7 en la nube o Docker.
 2.  **Fase de Extracción**:
+
     *   **Dólar en Tiempo Real**: Extrae automáticamente el tipo de cambio actual directamente desde el encabezado del sitio de Intcomex.
     *   **Descarga Resiliente**: Descarga los archivos CSV por categorías. Si una descarga falla, el bot realiza un segundo intento automático tras completar la primera ronda.
 3.  **Fase de Carga (WooCommerce)**:
@@ -58,7 +60,12 @@ pip install -r requirements.txt
    ```bash
    cp credentials.example.py credentials.py
    ```
-2. Edita `credentials.py` y completa con tus datos reales de Intcomex, WooCommerce y el servidor SMTP para los reportes.
+2. Edita `credentials.py` y completa con tus datos reales.
+
+### 3. Gestión de Categorías
+Las categorías y sus URLs ya no están en el código. Se gestionan desde:
+*   `config/categories.json`: Edita este archivo para sumar o quitar categorías y configurar palabras clave de validación.
+
 
 ## 📖 Uso
 
@@ -69,13 +76,24 @@ El orquestador maneja el flujo completo (Sync -> Imágenes -> Carga) de forma au
 # Ejecutar todo el flujo (Sincronización + Imágenes + Carga + Limpieza + IA)
 python main_orchestrator.py all
 
-# Ejecutar solo fases específicas
-python main_orchestrator.py sync    # Solo descarga CSV y actualiza precios/stock
-python main_orchestrator.py images  # Solo busca y descarga imágenes faltantes
-python main_orchestrator.py upload  # Solo sube imágenes nuevas a WooCommerce
-python main_orchestrator.py clean   # Solo ejecuta la limpieza de inventario inteligente
-python main_orchestrator.py ia      # Ejecuta el trigger del webhook de IA
+# Ejecutar fases específicas
+python main_orchestrator.py sync
+python main_orchestrator.py images
 ```
+
+### 4. Despliegue con Docker (Recomendado para Servidores)
+El proyecto incluye soporte nativo para Docker y Docker Compose:
+
+```bash
+# Iniciar todo el stack (Bot + n8n)
+docker-compose up -d
+
+# Ver logs del bot
+docker-compose logs -f bot
+```
+
+*   **Variables de Entorno**: Puedes controlar el modo headless mediante `HEADLESS=true` o `false` en el archivo `docker-compose.yml`.
+
 
 ### 2. Ejecución de Componentes Individuales
 Si prefieres un control granular o depuración específica, puedes usar los bots por separado:
@@ -97,19 +115,21 @@ Si prefieres un control granular o depuración específica, puedes usar los bots
 
 ## 📁 Estructura del Proyecto
 ```
-intcomex-bot/
+├── config/               # Configuración de categorías (JSON)
 ├── main_orchestrator.py  # Orquestador central (Recomendado)
 ├── sync_bot.py           # Script principal de sincronización base
 ├── image_bot.py          # Bot de descarga de imágenes
 ├── inventory_cleaner.py  # Bot de gestión de stock y limpieza
 ├── ia_webhook_trigger.py # Trigger de lotes para n8n
 ├── credentials.py        # Credenciales (Ignorado por Git)
+├── Dockerfile            # Configuración de imagen Docker
+├── docker-compose.yml    # Orquestación de servicios (Bot + n8n)
 ├── n8n/                  # Flujos de n8n (JSON)
 ├── downloads/            # Almacenamiento temporal de CSVs
 ├── product_images/       # Repositorio local de imágenes descargadas
-├── modular_etl_backup/   # Versiones previas de la arquitectura ETL
 └── requirements.txt      # Dependencias
 ```
+
 
 ## ⚙️ Parámetros de Negocio
 Configurables dentro de `sync_bot.py`:

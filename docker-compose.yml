@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  bot:
+    build: .
+    container_name: intcomex-bot
+    restart: unless-stopped
+    volumes:
+      - ./data_activa:/app/data_activa
+      - ./product_images:/app/product_images
+      - ./downloads:/app/downloads
+      - ./config:/app/config
+      - ./credentials.py:/app/credentials.py
+    environment:
+      - TZ=America/Santiago
+      - HEADLESS=true
+      - PYTHONUNBUFFERED=1
+    # Se puede usar crontab dentro del contenedor o lanzar este servicio 
+    # mediante un scheduler externo si se prefiere.
+    command: ["python", "main_orchestrator.py", "all"]
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n-automation
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - NODE_ENV=production
+      - WEBHOOK_URL=http://localhost:5678/
+      - GENERIC_TIMEZONE=America/Santiago
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./n8n:/app/n8n_backup
+
+volumes:
+  n8n_data:

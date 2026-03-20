@@ -59,11 +59,13 @@ def save_state(state):
     except Exception as e:
         print(f"✗ Error al guardar {STATE_FILE}: {e}")
 
-def setup_driver(headless=True):
+def setup_driver():
     """Configura el driver de Selenium para navegación pública."""
+    headless = os.environ.get("HEADLESS", "true").lower() == "true"
     chrome_options = ChromeOptions()
     if headless:
         chrome_options.add_argument("--headless=new")
+
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
@@ -165,7 +167,7 @@ def run_image_bot(skus_to_process=None):
 
     print(f"📦 Procesando {len(target_skus)} SKUs mediante búsqueda directa...")
     
-    driver = setup_driver(headless=True)
+    driver = setup_driver()
     downloaded_count = 0
     wait = WebDriverWait(driver, 10)
 
