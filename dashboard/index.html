@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-COM Bot Performance Dashboard</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="logo">
+            <div class="logo-icon">
+                <i class="fas fa-robot text-white"></i>
+            </div>
+            <span>Antigravity Bot</span>
+        </div>
+
+        <nav class="nav-menu">
+            <a href="#" id="nav-overview" class="nav-item active">
+                <i class="fas fa-th-large"></i>
+                <span>Overview</span>
+            </a>
+            <a href="#" id="nav-analytics" class="nav-item">
+                <i class="fas fa-chart-line"></i>
+                <span>Analytics</span>
+            </a>
+            <a href="#" id="nav-products" class="nav-item">
+                <i class="fas fa-box"></i>
+                <span>Products</span>
+            </a>
+            <a href="#" id="nav-logs" class="nav-item">
+                <i class="fas fa-list-ul"></i>
+                <span>Logs</span>
+            </a>
+            <a href="#" id="nav-settings" class="nav-item">
+                <i class="fas fa-cog"></i>
+                <span>Settings</span>
+            </a>
+        </nav>
+
+        <div class="user-profile nav-item" style="margin-top: auto;">
+            <i class="fas fa-user-circle"></i>
+            <span>Admin Tu Partner TI</span>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <header>
+            <div class="page-title">
+                <h1>E-COM Bot Performance Dashboard</h1>
+            </div>
+            <div class="header-tools">
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" placeholder="Search...">
+                </div>
+                <div id="currentTime" style="color: var(--text-muted); font-size: 0.9rem;">OCT 26, 2023</div>
+                <div class="header-info-badge">
+                    <i class="fas fa-bolt"></i>
+                    <span id="bot-status-info">Bot Offline</span>
+                </div>
+            </div>
+        </header>
+
+        <div id="view-overview" class="view-section">
+            <section class="dashboard-grid">
+                
+                <!-- Card 1: HH SAVED -->
+                <div class="glass-card">
+                    <div class="kpi-header">
+                        <h3>HH Ahorradas</h3>
+                        <i class="fas fa-ellipsis-h text-muted"></i>
+                    </div>
+                    <div class="kpi-body">
+                        <div class="kpi-main">
+                            <div id="kpi-hh" class="kpi-value">--</div>
+                            <div class="kpi-unit">Horas Ahorradas</div>
+                        </div>
+                        <div class="kpi-icon-glow">
+                            <div class="glow-ring"></div>
+                            <i class="fas fa-stopwatch"></i>
+                        </div>
+                        <div class="trend-badge trend-up">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>--%</span>
+                        </div>
+                        <div style="margin-top: 10px; color: var(--text-muted); font-size: 0.8rem;">Total Tiempo Automatizado</div>
+                    </div>
+                </div>
+
+                <!-- Card 2: NEW PRODUCTS CHART -->
+                <div class="glass-card">
+                    <div class="kpi-header">
+                        <h3>Nuevos Productos Por Día</h3>
+                        <i class="fas fa-ellipsis-h text-muted"></i>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="barChart"></canvas>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-top: 20px; font-size: 0.75rem; color: var(--text-muted);">
+                        <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
+                    </div>
+                </div>
+
+                <!-- Card 3: STOCK HEALTH GAUGE -->
+                <div class="glass-card">
+                    <div class="kpi-header">
+                        <h3>Stock Saludable</h3>
+                        <i class="fas fa-ellipsis-h text-muted"></i>
+                    </div>
+                    <div class="kpi-body" style="padding-top: 20px;">
+                        <div class="gauge-container">
+                            <div id="gaugeCircle" class="gauge-circle"></div>
+                            <div id="kpi-gauge-value" class="gauge-value">--%</div>
+                        </div>
+                    </div>
+                    <div style="text-align: center; margin-top: 25px;">
+                        <p id="stock-status-msg" style="color: #10b981; font-size: 0.9rem; font-weight: 600;">Inventario Saludable</p>
+                    </div>
+                </div>
+
+                <!-- Card 4: HH TODAY (NEW) -->
+                <div class="glass-card accent-card">
+                    <div class="kpi-header">
+                        <h3>Ahorro Hoy</h3>
+                        <i class="fas fa-calendar-day text-blue"></i>
+                    </div>
+                    <div class="kpi-body">
+                        <div class="kpi-main">
+                            <div id="kpi-hh-today" class="kpi-value">--</div>
+                            <div class="kpi-unit">Horas Hombre</div>
+                        </div>
+                        <div class="kpi-icon-glow blue">
+                            <i class="fas fa-user-clock"></i>
+                        </div>
+                        <div style="margin-top: 15px; color: var(--text-muted); font-size: 0.8rem;">Productividad diaria</div>
+                    </div>
+                </div>
+
+                <!-- Card 5: VELOCITY BOOST (NEW) -->
+                <div class="glass-card turbo-card">
+                    <div class="kpi-header">
+                        <h3>Velocidad ViniBot</h3>
+                        <div class="pulse-icon"></div>
+                    </div>
+                    <div class="kpi-body">
+                        <div class="kpi-main">
+                            <div id="kpi-velocity" class="kpi-value turbo-text">--x</div>
+                            <div class="kpi-unit">Más rápido que un humano</div>
+                        </div>
+                        <div class="velocity-bar-container">
+                            <div id="velocity-fill" class="velocity-fill" style="width: 0%"></div>
+                        </div>
+                        <div style="margin-top: 15px; display: flex; justify-content: space-between; font-size: 0.8rem;">
+                            <span class="text-muted">Human: 1x</span>
+                            <span id="velocity-label" style="color: #f59e0b; font-weight: bold;">Turbo Active</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 6: RECENT ACTIVITIES -->
+                <div class="glass-card">
+                    <div class="kpi-header">
+                        <h3>Actividades</h3>
+                        <i class="fas fa-history text-muted"></i>
+                    </div>
+                    <div id="activitiesList" class="activity-list" style="margin-top: 10px;">
+                        <!-- Dynamic -->
+                    </div>
+                </div>
+
+            </section>
+        </div>
+
+        <!-- Placeholder for other views -->
+        <div id="view-analytics" class="view-section hidden">
+            <div class="glass-card full-width-section">
+                <div class="kpi-header">
+                    <h2>Analytics Avanzado</h2>
+                    <p style="color: var(--text-muted);">Evolución histórica de automatización</p>
+                </div>
+                <div class="chart-container" style="height: 400px;">
+                    <canvas id="analyticsLineChart"></canvas>
+                </div>
+                <div id="analytics-summary" style="margin-top: 20px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
+                    <!-- Dynamic -->
+                </div>
+            </div>
+        </div>
+
+        <div id="view-products" class="view-section hidden">
+            <div class="glass-card full-width-section">
+                <div class="kpi-header">
+                    <h2>Catálogo de Productos</h2>
+                    <div class="search-box" style="width: 300px;">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="productSearch" placeholder="Buscar por SKU o Nombre...">
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table id="productsTable">
+                        <thead>
+                            <tr>
+                                <th>SKU</th>
+                                <th>Producto</th>
+                                <th>Precio</th>
+                                <th>Stock</th>
+                                <th>Estados</th>
+                            </tr>
+                        </thead>
+                        <tbody id="productsTableBody">
+                            <!-- Dynamic -->
+                        </tbody>
+                    </table>
+                </div>
+                <div id="pagination-info" style="margin-top: 20px; color: var(--text-muted); font-size: 0.85rem; text-align: center;">
+                    Mostrando primeros 50 productos...
+                </div>
+            </div>
+        </div>
+        <div id="view-logs" class="view-section hidden">
+            <div class="glass-card">
+                <h2>Execution Logs</h2>
+                <p style="color: var(--text-muted); margin-top: 10px;">Real-time output and error tracking from orchestrator runs.</p>
+                <div style="height: 300px; display: flex; align-items: center; justify-content: center; color: var(--text-muted);">
+                    <i class="fas fa-tools" style="margin-right: 10px;"></i> Under Construction
+                </div>
+            </div>
+        </div>
+        <div id="view-settings" class="view-section hidden">
+            <div class="glass-card">
+                <h2>Settings</h2>
+                <p style="color: var(--text-muted); margin-top: 10px;">Configure sync thresholds, API keys, and notification preferences.</p>
+                <div style="height: 300px; display: flex; align-items: center; justify-content: center; color: var(--text-muted);">
+                    <i class="fas fa-tools" style="margin-right: 10px;"></i> Under Construction
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>

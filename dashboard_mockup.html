@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bot Intelligence Dashboard - Mockup</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0b0e14;
+            --panel: rgba(255, 255, 255, 0.05);
+            --accent: #3b82f6;
+            --accent-glow: rgba(59, 130, 246, 0.5);
+            --text-primary: #ffffff;
+            --text-secondary: #94a3b8;
+            --success: #10b981;
+            --warning: #f59e0b;
+        }
+
+        body {
+            margin: 0;
+            padding: 30px;
+            background-color: var(--bg);
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .dashboard {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 40px;
+        }
+
+        h1 {
+            font-weight: 700;
+            font-size: 2rem;
+            margin: 0;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .status-badge {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--success);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--success);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.4;
+            }
+
+            100% {
+                opacity: 1;
+            }
+        }
+
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: var(--panel);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 24px;
+            transition: transform 0.3s ease, border-color 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(59, 130, 246, 0.3);
+        }
+
+        .kpi-title {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            font-weight: 500;
+            margin-bottom: 10px;
+        }
+
+        .kpi-value {
+            font-size: 2.2rem;
+            font-weight: 700;
+        }
+
+        .kpi-value.highlight {
+            color: var(--accent);
+            text-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        .kpi-trend {
+            margin-top: 10px;
+            font-size: 0.85rem;
+        }
+
+        .up {
+            color: var(--success);
+        }
+
+        .charts-container {
+            display: grid;
+            grid-template-columns: 1fr 2fr 1fr;
+            gap: 20px;
+        }
+
+        .chart-panel {
+            min-height: 300px;
+        }
+
+        .mock-bar-chart {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            height: 200px;
+            margin-top: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .bar {
+            width: 30px;
+            background: linear-gradient(0deg, var(--accent), #8b5cf6);
+            border-radius: 6px 6px 0 0;
+            position: relative;
+        }
+
+        .bar::after {
+            content: attr(data-label);
+            position: absolute;
+            bottom: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+        }
+
+        .side-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .health-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+        }
+
+        .health-status {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .health-ok {
+            background: var(--success);
+            box-shadow: 0 0 8px var(--success);
+        }
+
+        .health-err {
+            background: #ef4444;
+            box-shadow: 0 0 8px #ef4444;
+        }
+
+        .log-section {
+            margin-top: 30px;
+        }
+
+        .log-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            margin-top: 15px;
+        }
+
+        .log-table th {
+            text-align: left;
+            color: var(--text-secondary);
+            padding: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .log-table td {
+            padding: 12px 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .script-badge {
+            background: rgba(59, 130, 246, 0.1);
+            color: var(--accent);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-family: monospace;
+        }
+
+        .recent-activity {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .activity-item {
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+        }
+
+        .activity-item span:first-child {
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="dashboard">
+        <header>
+            <h1>Bot Intelligence Dashboard</h1>
+            <div class="status-badge">
+                <div class="status-dot"></div>
+                Sincronizando
+            </div>
+        </header>
+
+        <main>
+            <div class="kpi-grid">
+                <div class="card">
+                    <div class="kpi-title">HH Ahorradas (Total)</div>
+                    <div class="kpi-value highlight">956.4</div>
+                    <div class="kpi-trend up">↑ 4.2h hoy</div>
+                </div>
+                <div class="card">
+                    <div class="kpi-title">Productos en Catálogo</div>
+                    <div class="kpi-value">1,248</div>
+                    <div class="kpi-trend">+12 nuevos esta semana</div>
+                </div>
+                <div class="card">
+                    <div class="kpi-title">Procesados por IA</div>
+                    <div class="kpi-value">409</div>
+                    <div class="kpi-trend up">100% de éxito</div>
+                </div>
+                <div class="card">
+                    <div class="kpi-title">Estado del Inventario</div>
+                    <div class="kpi-value" style="color: var(--warning)">86%</div>
+                    <div class="kpi-trend">12 productos agotados</div>
+                </div>
+            </div>
+
+            <div class="charts-container">
+                <!-- PANEL IZQUIERDO: SALUD -->
+                <div class="side-panel">
+                    <div class="card">
+                        <div class="kpi-title">System Health</div>
+                        <div class="health-item">
+                            <span>WooCommerce API</span>
+                            <div class="health-status health-ok"></div>
+                        </div>
+                        <div class="health-item">
+                            <span>n8n Webhook</span>
+                            <div class="health-status health-ok"></div>
+                        </div>
+                        <div class="health-item">
+                            <span>Intcomex Portal</span>
+                            <div class="health-status health-ok"></div>
+                        </div>
+                        <div class="health-item">
+                            <span>Chrome Driver</span>
+                            <div class="health-status health-err"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CENTRO: GRÁFICO -->
+                <div class="card chart-panel">
+                    <div class="kpi-title">Nuevos Productos (Últimos 7 días)</div>
+                    <div class="mock-bar-chart">
+                        <div class="bar" style="height: 40%;" data-label="Lun"></div>
+                        <div class="bar" style="height: 60%;" data-label="Mar"></div>
+                        <div class="bar" style="height: 35%;" data-label="Mie"></div>
+                        <div class="bar" style="height: 85%;" data-label="Jue"></div>
+                        <div class="bar" style="height: 50%;" data-label="Vie"></div>
+                        <div class="bar" style="height: 20%;" data-label="Sab"></div>
+                        <div class="bar" style="height: 30%;" data-label="Dom"></div>
+                    </div>
+                </div>
+
+                <!-- PANEL DERECHO: ACTIVIDAD -->
+                <div class="card">
+                    <div class="kpi-title">Actividad Reciente</div>
+                    <ul class="recent-activity">
+                        <li class="activity-item">
+                            <span>IA Enrichment</span>
+                            <span>✅ 100% OK</span>
+                        </li>
+                        <li class="activity-item">
+                            <span>Woo Sync</span>
+                            <span>+4 Actualizados</span>
+                        </li>
+                        <li class="activity-item">
+                            <span>Image Bot</span>
+                            <span>2 fotos nuevas</span>
+                        </li>
+                        <li class="activity-item">
+                            <span>Inventory Cleaner</span>
+                            <span>1 borrador</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- SECCIÓN DE LOGS DE EJECUCIÓN -->
+            <div class="log-section">
+                <div class="card">
+                    <div class="kpi-title">Historial de Ejecuciones (.py)</div>
+                    <table class="log-table">
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Módulo</th>
+                                <th>Acción</th>
+                                <th>Resultado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>2026-03-04 21:10</td>
+                                <td><span class="script-badge">ia_trigger</span></td>
+                                <td>Enriquecimiento masivo</td>
+                                <td class="up">409 productos OK</td>
+                            </tr>
+                            <tr>
+                                <td>2026-03-04 19:45</td>
+                                <td><span class="script-badge">sync_bot</span></td>
+                                <td>Sincronización Notebooks</td>
+                                <td class="up">Satisfecho</td>
+                            </tr>
+                            <tr>
+                                <td>2026-03-04 18:30</td>
+                                <td><span class="script-badge">cleaner</span></td>
+                                <td>Limpieza de stock</td>
+                                <td>1 borrador creado</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+</body>
+
+</html>

@@ -88,11 +88,11 @@
         },
         {
             "parameters": {
-                "amount": 2,
+                "amount": 5,
                 "unit": "seconds"
             },
             "id": "wait-node-id",
-            "name": "Espera 2s",
+            "name": "Espera 5s",
             "type": "n8n-nodes-base.wait",
             "typeVersion": 1.1,
             "position": [
@@ -115,6 +115,9 @@
             "name": "OpenAI - Texto",
             "type": "n8n-nodes-base.httpRequest",
             "typeVersion": 4.1,
+            "retryOnFail": true,
+            "maxTries": 5,
+            "waitBetweenTries": 5000,
             "position": [
                 1400,
                 200
@@ -141,6 +144,9 @@
             "name": "WooCommerce - Actualizar",
             "type": "n8n-nodes-base.wooCommerce",
             "typeVersion": 1,
+            "retryOnFail": true,
+            "maxTries": 5,
+            "waitBetweenTries": 5000,
             "position": [
                 1600,
                 200
@@ -234,7 +240,7 @@
             "main": [
                 [
                     {
-                        "node": "Espera 2s",
+                        "node": "Espera 5s",
                         "type": "main",
                         "index": 0
                     }
@@ -248,7 +254,7 @@
                 ]
             ]
         },
-        "Espera 2s": {
+        "Espera 5s": {
             "main": [
                 [
                     {

@@ -1,0 +1,29 @@
+{
+  "tasks": [
+    {
+      "id": 1,
+      "title": "Define data structure for daily deltas and execution tracking",
+      "status": "PENDING",
+      "plan_approved": false,
+      "assigned_to": "Architect",
+      "dependencies": []
+    },
+    {
+      "id": 2,
+      "title": "Implement backend tracking for new products and duration",
+      "status": "PENDING",
+      "plan_approved": false,
+      "assigned_to": "Backend",
+      "dependencies": []
+    },
+    {
+      "id": 3,
+      "title": "Implement dashboard view switching and new charts",
+      "status": "PENDING",
+      "plan_approved": false,
+      "assigned_to": "Frontend",
+      "dependencies": []
+    }
+  ],
+  "members": []
+}

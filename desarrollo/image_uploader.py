@@ -130,68 +130,37 @@ def run_image_uploader(max_workers=5):
     batch_manager = WooBatchManager(wcapi, chunk_size=50)
     success_count = 0
     
-    skus_added_to_batch = []
     for sku in skus_to_sync:
-        data = state.get(sku, {})
         pid = SKU_ID_MAP.get(sku)
+        if not pid: continue
         
+        data = state[sku]
         payload = {
-            "name": data.get("nombre"),
             "regular_price": str(data.get("sale_price")),
-            "sku": sku,
-            "manage_stock": True,
             "stock_quantity": data.get("stock"),
+            "manage_stock": True,
             "status": "publish"
         }
         
-        # Categorías
-        categories_list = []
-        cat_name = data.get("categoria_csv") or data.get("categoria_principal")
-        # (Para simplicidad del batch, omitimos la creación de categorías on-the-fly aquí, 
-        # asumimos que ya existen o se crearán en una fase previa si es necesario, 
-        # o usamos IDs conocidos si los tuviéramos. Por ahora enviamos el nombre si es nuevo?)
-        
-        # Vincular imagen
+        # Vincular imagen si acabamos de subirla
         if sku in media_results:
             payload["images"] = [{"id": media_results[sku]["id"]}]
         elif not data.get("tiene_imagen") and not data.get("placeholder_personalizado"):
+            # Placeholder
             payload["images"] = [{"src": "https://tupartnerti.cl/tienda/wp-content/uploads/2026/03/Flow_6f1163a766.jpeg"}]
             state[sku]["placeholder_personalizado"] = True
 
-        if pid:
-            batch_manager.add_update(pid, payload)
-        else:
-            # Es NUEVO en WooCommerce
-            payload["type"] = "simple"
-            payload["meta_data"] = [{"key": "n8n_mejorado", "value": "false"}]
-            batch_manager.add_create(payload)
-
-        skus_added_to_batch.append(sku)
+        batch_manager.add_update(pid, payload)
+        
+        # Marcar estado local
+        if sku in media_results:
+            state[sku]["subido_a_woo"] = True
+            state[sku]["woo_media_id"] = media_results[sku]["id"]
+            state[sku]["woo_image_url"] = media_results[sku]["url"]
+        state[sku]["pendiente_sync_woo"] = False
         success_count += 1
 
-    results = batch_manager.flush()
-    
-    # Actualizar estado local basandose en lo que entró al batch
-    # Nota: Las creaciones podrían no tener subido_a_woo=True hasta que verifiquemos el ID
-    # pero para forzar el avance, asumiremos éxito parcial si el batch no falló.
-    if results is not None:
-        for sku in skus_added_to_batch:
-            if sku in media_results:
-                state[sku]["subido_a_woo"] = True
-                state[sku]["woo_media_id"] = media_results[sku]["id"]
-                state[sku]["woo_image_url"] = media_results[sku]["url"]
-            
-            # Si era nuevo, intentamos pescar su ID del resultado para mayor precisión
-            if not SKU_ID_MAP.get(sku) and 'create' in results:
-                for created_item in results['create']:
-                    if str(created_item.get('sku')) == str(sku):
-                        state[sku]["subido_a_woo"] = True
-                        break
-            elif SKU_ID_MAP.get(sku):
-                state[sku]["subido_a_woo"] = True # Ya existía
-            
-            state[sku]["pendiente_sync_woo"] = False
-
+    batch_manager.flush()
     save_state(state)
     
     print(f"✅ Uploader finalizado: {success_count} productos actualizados.")
