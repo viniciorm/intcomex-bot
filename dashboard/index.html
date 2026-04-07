@@ -170,7 +170,7 @@
                 </div>
 
                 <!-- Card 6: RECENT ACTIVITIES -->
-                <div class="glass-card">
+                <div class="glass-card" style="cursor: pointer; transition: transform 0.2s;" onclick="document.getElementById('nav-logs').click()" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
                     <div class="kpi-header">
                         <h3>Actividades</h3>
                         <i class="fas fa-history text-muted"></i>
@@ -230,11 +230,24 @@
             </div>
         </div>
         <div id="view-logs" class="view-section hidden">
-            <div class="glass-card">
-                <h2>Execution Logs</h2>
-                <p style="color: var(--text-muted); margin-top: 10px;">Real-time output and error tracking from orchestrator runs.</p>
-                <div style="height: 300px; display: flex; align-items: center; justify-content: center; color: var(--text-muted);">
-                    <i class="fas fa-tools" style="margin-right: 10px;"></i> Under Construction
+            <div class="glass-card full-width-section">
+                <div class="kpi-header">
+                    <h2>Bitácora del Sistema (Logs)</h2>
+                    <p style="color: var(--text-muted);">Registro histórico completo de las operaciones del orquestador.</p>
+                </div>
+                <div class="table-container" style="max-height: 600px; overflow-y: auto; margin-top: 15px;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); color: var(--text-muted); font-size: 0.85rem;">
+                                <th style="padding: 12px; width: 15%;">FECHA Y HORA</th>
+                                <th style="padding: 12px; width: 20%;">CATEGORÍA</th>
+                                <th style="padding: 12px; width: 65%;">ACCIÓN REGISTRADA</th>
+                            </tr>
+                        </thead>
+                        <tbody id="fullLogsTableBody">
+                            <!-- Dynamic -->
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>

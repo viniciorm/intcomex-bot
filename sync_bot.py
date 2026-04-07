@@ -519,29 +519,77 @@ def login_intcomex(driver, username, password):
         else:
             pass_field.submit()
             
-        # Validar acceso
+        # Validar acceso y manejar posible 2FA
         print("🔍 Validando acceso...")
         time.sleep(5)
         
-        current_url = driver.current_url.lower()
-        if "login" not in current_url and "account" not in current_url:
-            print(f"✓ Inicio de sesión exitoso: {driver.current_url}")
-            return True
+        # Ciclo para detectar 2FA o éxito de login (hasta 90 segundos de espera total)
+        for check_attempt in range(30):
+            current_url = driver.current_url.lower()
             
-        # Check por elementos de éxito
-        success_indicators = [
-            (By.CSS_SELECTOR, "a[href*='logout']"),
-            (By.CSS_SELECTOR, ".user-menu"),
-            (By.ID, "CountrySelector")
-        ]
-        for indicator in success_indicators:
+            # Check de éxito
+            if "login" not in current_url and "account" not in current_url and "ad" not in current_url:
+                print(f"✓ Inicio de sesión exitoso: {driver.current_url}")
+                return True
+                
             try:
-                if driver.find_elements(indicator[0], indicator[1]):
-                    print("✓ Inicio de sesión exitoso detectado.")
-                    return True
-            except: pass
+                # Buscar si existe el div del Phonefactor o Autenticación multifactor
+                page_src = driver.page_source.lower()
+                if "phonefactor" in page_src or "autenticación de seguridad" in page_src or "autenticación multifactor" in page_src:
+                    print("\n⚠️ Se detectó Autenticación de Seguridad (2FA SMS) de Intcomex.")
+                    
+                    # Intentar hacer clic en el botón "Enviar Código" si está presente
+                    try:
+                        # En Azure AD B2C, suele ser un botón con id 'continue' que dice Enviar Código
+                        botones_enviar = driver.find_elements(By.XPATH, "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÓÚ', 'abcdefghijklmnopqrstuvwxyzáéíóú'), 'enviar')] | //button[@id='continue']")
+                        btn_enviar = next((b for b in botones_enviar if b.is_displayed()), None)
+                        if btn_enviar:
+                            print("🖱️ Haciendo clic en 'Enviar Código'...")
+                            driver.execute_script("arguments[0].click();", btn_enviar)
+                            time.sleep(3)
+                    except Exception as e:
+                        print(f"Nota: No se pudo clickear automáticamente en 'Enviar Código' ({e}). Hazlo manual si es necesario.")
+                        
+                    print("\n" + "="*50)
+                    print("Por favor revisa tu teléfono.")
+                    codigo_sms = input("Ingresa el código SMS de Intcomex aquí: ").strip()
+                    print("="*50 + "\n")
+                    
+                    # Rellenar la casilla del código
+                    # En Azure AD B2C, la casilla suele tener id='verificationCode' o ser un input type='text'
+                    try:
+                        casillas_codigo = driver.find_elements(By.XPATH, "//input[@id='verificationCode'] | //input[@type='text' or @type='number' or @type='tel']")
+                        casilla_codigo = next((c for c in casillas_codigo if c.is_displayed()), None)
+                        if casilla_codigo:
+                            casilla_codigo.clear()
+                            casilla_codigo.send_keys(codigo_sms)
+                            time.sleep(1)
+                            
+                            # Clic en el botón de Verificar / Continuar
+                            botones_verificar = driver.find_elements(By.XPATH, "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÓÚ', 'abcdefghijklmnopqrstuvwxyzáéíóú'), 'verificar')] | //button[@id='verifyCode'] | //button[@id='continue']")
+                            btn_verificar = next((b for b in botones_verificar if b.is_displayed()), None)
+                            if btn_verificar:
+                                print("🖱️ Enviando el código...")
+                                driver.execute_script("arguments[0].click();", btn_verificar)
+                                time.sleep(5)
+                                # Volver a ciclar para chequear el éxito
+                                continue
+                            else:
+                                print("No se encontró el botón de verificar. Haz clic manual en el navegador.")
+                        else:
+                            print("No se encontró la casilla para ingresar el código. Ingrésalo manualmente en el navegador.")
+                    except Exception as e:
+                        print(f"Error al ingresar código: {e}. Por favor, termínalo manualmente en el navegador.")
+                    
+                    # Darle tiempo al usuario si tuvo que hacerlo manual
+                    print("⌛ Esperando a que se complete el login...")
+                    time.sleep(15)
+            except Exception as inner_e:
+                pass
             
-        print("✗ No se pudo confirmar el inicio de sesión.")
+            time.sleep(3)
+            
+        print("✗ No se pudo confirmar el inicio de sesión después de esperar.")
         return False
         
     except Exception as e:

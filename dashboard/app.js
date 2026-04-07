@@ -34,6 +34,7 @@ async function initDashboard() {
     allStats = await fetchData('../data_activa/historico_stats.json') || [];
     const productsObj = await fetchData('../data_activa/estado_productos.json') || {};
     allProducts = Object.values(productsObj);
+    const allActivities = await fetchData('../data_activa/actividades.json') || [];
 
     if (allStats.length > 0) {
         const latest = allStats[allStats.length - 1];
@@ -80,7 +81,7 @@ async function initDashboard() {
         updateBotStatus(latest);
     }
 
-    initActivities(allStats);
+    initActivities(allActivities);
     initNavigation();
     
     // Initial content render
@@ -269,16 +270,59 @@ function initGaugeChart(value) {
     text.innerText = value + '%';
 }
 
-function initActivities(stats) {
+function timeAgo(dateString) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const seconds = Math.floor((now - date) / 1000);
+    
+    if (seconds < 60) return "Just now";
+    
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes} min ago`;
+    
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} hrs ago`;
+    
+    const days = Math.floor(hours / 24);
+    return `${days} days ago`;
+}
+
+function initActivities(activities) {
     const list = document.getElementById('activitiesList');
     list.innerHTML = '';
-    const latest = stats.length > 0 ? stats[stats.length - 1] : null;
     
-    if (latest && latest.nuevos_productos > 0) {
-        renderActivity(list, 'fa-robot', `Bot ha añadido ${latest.nuevos_productos} nuevos productos`, 'Sincronización', 'Just now');
+    if (!activities || activities.length === 0) {
+        list.innerHTML = '<div style="color: var(--text-muted); text-align: center; margin-top: 20px;">Sin actividades recientes.</div>';
+        return;
     }
-    renderActivity(list, 'fa-sync', 'Sincronización de Stock completada', 'WooCommerce', '2 hours ago');
-    renderActivity(list, 'fa-shield-alt', 'Health Check: Todo OK', 'Sistema', '5 hours ago');
+    
+    // Mostrar solo los últimos 6 eventos en la tarjeta principal
+    activities.slice(0, 6).forEach(act => {
+        renderActivity(list, act.icon || 'fa-info-circle', act.message, act.categoria || 'Sistema', timeAgo(act.timestamp));
+    });
+
+    // Llenar la tabla completa de la vista "Logs"
+    const tbody = document.getElementById('fullLogsTableBody');
+    if (tbody) {
+        tbody.innerHTML = '';
+        activities.forEach(act => {
+            const tr = document.createElement('tr');
+            tr.style = "border-bottom: 1px solid rgba(255,255,255,0.05); transition: background 0.2s;";
+            tr.onmouseover = function() { this.style.backgroundColor = "rgba(255,255,255,0.03)"; };
+            tr.onmouseout = function() { this.style.backgroundColor = "transparent"; };
+
+            const dateObj = new Date(act.timestamp);
+            const timeStr = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString();
+            const iconHtml = act.icon ? `<i class="fas ${act.icon}" style="margin-right:8px; color:var(--accent-blue); width: 16px; text-align: center;"></i>` : '';
+            
+            tr.innerHTML = `
+                <td style="padding: 12px; color: var(--text-muted); font-size: 0.85rem;">${timeStr}</td>
+                <td style="padding: 12px; font-weight: 600;"><span class="status-badge" style="background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2);"><i class="fas fa-tag" style="margin-right: 5px;"></i> ${act.categoria || 'Sistema'}</span></td>
+                <td style="padding: 12px; font-size: 0.95rem;">${iconHtml} ${act.message}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
 }
 
 function renderActivity(container, icon, msg, meta, time) {

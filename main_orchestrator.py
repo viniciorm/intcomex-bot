@@ -15,6 +15,7 @@ from sync_bot import run_sync_bot, init_woocommerce_api, LoginException
 from ia_webhook_trigger import run_ia_webhook_trigger
 from generate_stats import generate_daily_snapshot
 from system_health import run_health_check
+from activity_logger import log_activity
 
 # Importar credenciales
 try:
@@ -208,15 +209,15 @@ def enviar_reporte_consolidado(resumen, error_critico=None):
 
 def main():
     # Detectar modo de ejecución por argumentos
-    # python main_orchestrator.py [all|sync|images|upload|clean|ia|local]
+    # python main_orchestrator.py [all|sync|images|upload|clean|ia|local|resume]
     mode = "all"
     if len(sys.argv) > 1:
         # Normalizar modo (quitar guiones si el usuario puso -all o --all)
         mode = sys.argv[1].lower().lstrip("-")
 
     print("="*60)
-    print(f"        ORQUESTADOR INTCOMEX (MODO: {mode.upper()})")
-    print("="*60)
+    
+    log_activity(f"Orquestador iniciado (Modo: {mode.upper()})", "Sistema", "fa-play")
 
     resumen = {
         "sync": {"status": "SKIPPED", "stats": {}},
@@ -237,12 +238,14 @@ def main():
                 skip_dl = (mode == 'local')
                 msg_local = " (MODO LOCAL: Sin descargas)" if skip_dl else ""
                 print(f"\n[FASE A] Iniciando Sincronización de Precios/Stock{msg_local}...")
+                log_activity("Iniciando Fase A: Sincronización", "Sincronización", "fa-sync fa-spin")
                 # Sync Bot requiere login si no es local
                 stats, nuevos = run_sync_bot(skip_download=skip_dl)
                 resumen["sync"]["status"] = "OK"
                 resumen["sync"]["stats"] = stats
                 resumen["sync"]["nuevos_skus"] = nuevos
                 nuevos_count = len(nuevos) if nuevos else 0
+                log_activity(f"Fase A Completada. Nuevos SKUs: {nuevos_count}", "Sincronización", "fa-check-circle")
             except LoginException as le:
                 error_msg = f"Fallo de Login: {le}"
                 resumen["sync"]["status"] = "CRITICAL_ERROR"
@@ -257,13 +260,15 @@ def main():
             
             if skus_sin_imagen:
                 print(f"\n[FASE B] Iniciando Deep Scan para {len(skus_sin_imagen)} SKUs...")
+                log_activity(f"Iniciando Fase B: Deep Scan de {len(skus_sin_imagen)} imgs", "Imágenes", "fa-search")
                 descargas = run_image_bot(skus_to_process=skus_sin_imagen)
                 resumen["imagenes"]["descargadas"] = descargas
+                log_activity(f"Fase B Completada. Descargadas: {descargas}", "Imágenes", "fa-image")
             else:
                 print("\n[FASE B] No hay SKUs pendientes de imagen. Saltando.")
 
         # FASE C: Vinculación WooCommerce y Datos
-        if mode in ['all', 'upload']:
+        if mode in ['all', 'upload', 'resume']:
             state = load_state()
             # Pendientes: O tienen imagen nueva, o tienen cambios de precio/stock no sincronizados
             pending_upload = [sku for sku, data in state.items() 
@@ -275,30 +280,38 @@ def main():
             
             if pending_upload:
                 print(f"\n[FASE C] Iniciando Sincronización de {len(pending_upload)} productos...")
+                log_activity(f"Iniciando Fase C: Subida a Woo (Batch) de {len(pending_upload)} imgs", "WooCommerce", "fa-cloud-upload-alt")
                 procesados = run_image_uploader()
                 resumen["uploader"]["vinculadas"] = procesados
+                log_activity(f"Fase C Completada. Vinculadas: {procesados}", "WooCommerce", "fa-link")
             else:
                 print("\n[FASE C] No hay datos ni imágenes pendientes de sincronizar. Saltando.")
 
         # FASE D: Limpieza de Inventario
-        if mode in ['all', 'clean']:
+        if mode in ['all', 'clean', 'resume']:
             print("\n[FASE D] Iniciando Limpieza de Inventario...")
+            log_activity("Iniciando Fase D: Limpieza de Inventario", "Cleaner", "fa-broom")
             clean_stats = run_inventory_cleaner()
             resumen["cleaner"] = clean_stats
+            log_activity(f"Fase D Completada. Ocultados: {clean_stats.get('stock_bajo',0) + clean_stats.get('fuera_catalogo',0)}", "Cleaner", "fa-recycle")
 
         # FASE E: Disparar Webhook de IA (n8n)
-        if mode in ['all', 'ia']:
+        if mode in ['all', 'ia', 'resume']:
             print("\n[FASE E] Iniciando Webhook de Inteligencia Artificial...")
+            log_activity("Iniciando Fase E: IA Enrichment", "Inteligencia Artificial", "fa-robot")
             total_skus_ia = run_ia_webhook_trigger()
             resumen["ia"]["enviados"] = total_skus_ia
+            log_activity(f"Fase E Completada. Enriquecidos: {total_skus_ia}", "Inteligencia Artificial", "fa-brain")
 
     except Exception as e:
         error_global = str(e)
         print(f"\n❌ ERROR CRÍTICO: {error_global}")
+        log_activity(f"Fallo Crítico Detenido: {error_global}", "Sistema", "fa-exclamation-triangle")
     finally:
         # Generar estadísticas para el Dashboard automáticamente
         duration = time.time() - start_time
         print("\n📈 Actualizando Dashboard de KPIs...")
+        log_activity("Actualizando Dashboard y métricas de ROI", "Sistema", "fa-chart-pie")
         run_health_check()
         generate_daily_snapshot(nuevos_count=nuevos_count, duration=duration)
         

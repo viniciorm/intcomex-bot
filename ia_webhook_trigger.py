@@ -94,12 +94,32 @@ def process_single_ia_request(sku, data):
                     choices = body.get("choices", [])
                     if isinstance(choices, list) and len(choices) > 0:
                         ia_content = choices[0].get("message", {}).get("content")
+                        
+            # Ruta 3: Output directo de algún sub-nodo (común en n8n)
+            if not ia_content and "output" in result:
+                ia_content = result.get("output")
+            if not ia_content and "text" in result:
+                ia_content = result.get("text")
+                
+            # Ruta 4: String plano
+            if not ia_content and isinstance(result, str):
+                ia_content = result
             
-            return sku, ia_content
-        return sku, None
+            if ia_content:
+                return sku, ia_content, None
+            else:
+                print(f"    [!] n8n no devolvió el formato esperado para {sku}. Extracto: {str(result)[:80]}...")
+                return sku, None, "formato_desconocido"
+        else:
+            print(f"    [!] HTTP {response.status_code} desde n8n para {sku}")
+            return sku, None, "error_http"
+            
+    except requests.exceptions.Timeout:
+        print(f"    [!] Timeout de 60s en n8n para {sku}")
+        return sku, None, "timeout"
     except Exception as e:
-        print(f"    [!] Error en n8n ({sku}): {e}")
-        return sku, None
+        print(f"    [!] Error de conexión en n8n ({sku}): {e}")
+        return sku, None, str(e)
 
 def process_ai_enrichment(limit=None, max_workers=5):
     print("="*50)
@@ -107,13 +127,17 @@ def process_ai_enrichment(limit=None, max_workers=5):
     print("="*50)
     
     state = load_state()
-    pending_skus = [
-        sku for sku, data in state.items() 
-        if data.get("subido_a_woo") and not data.get("ia_mejorado", False)
-    ]
+    
+    # Pendientes: Que estén en woo, NO estén mejorados, y tengan menos de 3 intentos fallidos
+    pending_skus = []
+    for sku, data in state.items():
+        if data.get("subido_a_woo") and not data.get("ia_mejorado", False):
+            intentos = data.get("ia_intentos", 0)
+            if intentos < 3:
+                pending_skus.append(sku)
     
     if not pending_skus:
-        print("✓ No hay productos pendientes de enriquecimiento.")
+        print("✓ No hay productos pendientes/elegibles para enriquecimiento.")
         return 0
 
     if limit:
@@ -137,7 +161,7 @@ def process_ai_enrichment(limit=None, max_workers=5):
         }
         
         for future in concurrent.futures.as_completed(future_to_sku):
-            sku, content = future.result()
+            sku, content, error_reason = future.result()
             if content:
                 # 3. Enqueue update to WooCommerce
                 pid = SKU_ID_MAP.get(sku)
@@ -146,10 +170,13 @@ def process_ai_enrichment(limit=None, max_workers=5):
                         "description": content,
                         "meta_data": [{"key": "n8n_mejorado", "value": "true"}]
                     })
-                    results_to_save.append((sku, content))
+                    results_to_save.append((sku, content, "success"))
                     success_count += 1
                 else:
                     print(f"    [!] No se pudo encontrar el ID en Woo para {sku}, saltando batch.")
+                    results_to_save.append((sku, None, "no_wc_id"))
+            else:
+                results_to_save.append((sku, None, error_reason))
 
     # 4. Asegurar que todo se envíe a Woo
     batch_manager.flush()
@@ -157,9 +184,18 @@ def process_ai_enrichment(limit=None, max_workers=5):
     # 5. Guardar estado local (Una sola vez al final para mayor velocidad)
     if results_to_save:
         print(f"\n💾 Actualizando estado local para {len(results_to_save)} productos...")
-        for sku, content in results_to_save:
-            state[sku]["ia_mejorado"] = True
-            state[sku]["ultima_ia"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        for sku, content, status in results_to_save:
+            if status == "success":
+                state[sku]["ia_mejorado"] = True
+                state[sku]["ia_intentos"] = 0
+                state[sku]["ultima_ia"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                # Limpiar error anterior si existía
+                if "ultimo_error_ia" in state[sku]: del state[sku]["ultimo_error_ia"]
+            else:
+                # Incrementar fallitos
+                actual_intentos = state[sku].get("ia_intentos", 0)
+                state[sku]["ia_intentos"] = actual_intentos + 1
+                state[sku]["ultimo_error_ia"] = status
         save_state(state)
 
     print("\n" + "="*50)

@@ -19,7 +19,7 @@ Bot de producción de alto rendimiento diseñado para sincronizar miles de produ
 
 ## 📋 Flujo de Operación
 
-1.  **Fase de Acceso**: Selenium Headless para login automatizado y descarga de CSVs.
+1.  **Fase de Acceso**: Selenium para login automatizado y descarga de CSVs. **(NUEVO: Soporte de pausa interactiva en consola para ingresar código de Autenticación 2FA SMS de Intcomex).**
 2.  **Fase de Imágenes (Turbo)**: `image_bot.py` cosecha imágenes en paralelo.
 3.  **Fase de Carga & Media (Turbo)**: `image_uploader.py` sube binarios a WP y vincula productos en lotes.
 4.  **Fase de IA (Turbo)**: `ia_webhook_trigger.py` usa `ThreadPoolExecutor` para enriquecer descripciones mediante n8n/OpenAI sin esperas artificiales.
