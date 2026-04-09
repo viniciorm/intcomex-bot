@@ -16,6 +16,10 @@ Bot de producción de alto rendimiento diseñado para sincronizar miles de produ
 3.  **Dashboard de Performance v2**:
     *   **KPI de Velocidad**: Medición de "Velocidad vs Humano" (ej: 6.3x más rápido).
     *   **ROI de Tiempo**: Seguimiento diario de Horas Hombre (HH) ahorradas.
+4.  **Agente de Telegram Integrado**:
+    *   **Control Remoto y Programación**: Ejecuta el bot (`/run_now`), verifica su estado (`/status`) y mantén crons programados, todo desde un chat.
+    *   **Manejo Interactivo 2FA**: Intercepta solicitudes de código SMS de Intcomex, te avisa a Telegram y espera a que escribas el número para autocompletarlo.
+    *   **Notificaciones Finales**: Recibe resumen de ejecución y alertas de error crítico directo en tu dispositivo móvil.
 
 ## 📋 Flujo de Operación
 
@@ -64,6 +68,7 @@ python main_orchestrator.py all
 ├── dashboard/            # Web Dashboard (HTML/JS/CSS)
 ├── data_activa/          # JSONs de estado y estadísticas históricas
 ├── main_orchestrator.py  # Orquestador central
+├── telegram_agent.py     # Controlador de Telegram y Cron
 ├── woo_batch_manager.py  # Utility para Batch API (Nuevo)
 ├── generate_stats.py     # Generador de KPIs (Nuevo)
 ├── sync_bot.py           # Sincronización base

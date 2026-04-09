@@ -6,6 +6,7 @@ import smtplib
 from datetime import datetime
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+import requests
 
 # Importar bots
 from image_bot import run_image_bot
@@ -78,6 +79,18 @@ def enviar_alerta_emergencia(error):
         print("✅ Alerta de emergencia enviada.")
     except Exception as e:
         print(f"❌ Falló envío de alerta: {e}")
+
+    # Enviar también por Telegram
+    try:
+        from credentials import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+        if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID:
+            requests.post(f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage", data={
+                "chat_id": TELEGRAM_CHAT_ID,
+                "text": f"🚨 ALERTA DE SISTEMA: FALLO DE ACCESO\n\nSe ha detectado un error crítico durante el inicio de sesión en el portal de Intcomex.\n\nError: {error}\n\nEL PROCESO SE HA DETENIDO."
+            }, timeout=5)
+            print("✅ Alerta de emergencia enviada por Telegram.")
+    except Exception as e:
+        print(f"❌ Falló envío de alerta por Telegram: {e}")
 
 def load_state():
     if os.path.exists(STATE_FILE):
@@ -207,6 +220,61 @@ def enviar_reporte_consolidado(resumen, error_critico=None):
     except Exception as e:
         print(f"❌ Falló envío de reporte: {e}")
 
+def enviar_reporte_telegram(resumen, error_critico=None):
+    """Envía un resumen de la ejecución a través de Telegram."""
+    print("📱 Enviando reporte por Telegram...")
+    try:
+        from credentials import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+        if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+            print("Telegram no configurado en credentials.py")
+            return
+            
+        fecha_asunto = datetime.now().strftime("%d/%m/%Y")
+        texto = f"📅 *Resumen de Ejecución - {fecha_asunto}*\n\n"
+        
+        if error_critico:
+            texto += f"🚨 *ERROR CRÍTICO DETECTADO:* {error_critico}\n\n"
+            
+        sync = resumen.get("sync", {})
+        texto += "🔄 *FASE A: Sincronización*\n"
+        texto += f"Estado: {'✅ Completado' if sync.get('status') == 'OK' else '❌ Falló/Pendiente'}\n"
+        texto += f"Procesados: {sync.get('stats', {}).get('productos_procesados', 0)}\n"
+        texto += f"Nuevos SKUs: {sync.get('stats', {}).get('productos_creados', 0)}\n"
+        texto += f"Actualizados: {sync.get('stats', {}).get('productos_actualizados', 0)}\n\n"
+        
+        imgs = resumen.get("imagenes", {})
+        texto += "🖼️ *FASE B: Imágenes*\n"
+        texto += f"Descargadas: {imgs.get('descargadas', 0)}\n\n"
+        
+        up = resumen.get("uploader", {})
+        texto += "☁️ *FASE C: Vinculación WooCommerce*\n"
+        texto += f"Vinculadas: {up.get('vinculadas', 0)}\n\n"
+        
+        cl = resumen.get("cleaner", {})
+        texto += "🧹 *FASE D: Limpieza de Inventario*\n"
+        texto += f"Re-activados: {cl.get('reactivados', 0)}\n"
+        texto += f"Ocultos stock bajo: {cl.get('stock_bajo', 0)}\n"
+        texto += f"Ocultos fuera cat: {cl.get('fuera_catalogo', 0)}\n\n"
+        
+        ia = resumen.get("ia", {})
+        texto += "🧠 *FASE E: IA (n8n)*\n"
+        texto += f"Enriquecidos: {ia.get('enviados', 0)}\n"
+
+        resp = requests.post(f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage", data={
+            "chat_id": TELEGRAM_CHAT_ID,
+            "text": texto,
+            "parse_mode": "Markdown"
+        }, timeout=10)
+        
+        if resp.status_code == 200:
+            print("✅ Reporte Telegram enviado.")
+        else:
+            print(f"❌ Error API Telegram: {resp.status_code} - {resp.text}")
+    except ImportError:
+        print("Telegram no configurado en credentials.py")
+    except Exception as e:
+        print(f"❌ Falló envío de reporte por Telegram: {e}")
+
 def main():
     # Detectar modo de ejecución por argumentos
     # python main_orchestrator.py [all|sync|images|upload|clean|ia|local|resume]
@@ -318,6 +386,7 @@ def main():
         # Enviar reporte final siempre que haya ocurrido algo o haya un error
         if mode != "none":
             enviar_reporte_consolidado(resumen, error_critico=error_global)
+            enviar_reporte_telegram(resumen, error_critico=error_global)
     
     print("\n" + "="*60)
     print("🤖 ORQUESTADOR FINALIZADO")

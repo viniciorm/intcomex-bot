@@ -551,8 +551,41 @@ def login_intcomex(driver, username, password):
                         print(f"Nota: No se pudo clickear automáticamente en 'Enviar Código' ({e}). Hazlo manual si es necesario.")
                         
                     print("\n" + "="*50)
-                    print("Por favor revisa tu teléfono.")
-                    codigo_sms = input("Ingresa el código SMS de Intcomex aquí: ").strip()
+                    print("Por favor revisa tu teléfono. El agente de Telegram está en espera.")
+                    
+                    # Alertar a Telegram
+                    import requests
+                    try:
+                        from credentials import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+                        if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID:
+                            requests.post(f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage", data={
+                                "chat_id": TELEGRAM_CHAT_ID,
+                                "text": "⚠️ Intcomex solicita código de seguridad SMS (2FA).\nPor favor, ingresa los números aquí para inyectarlos en el navegador."
+                            }, timeout=5)
+                    except: pass
+                    
+                    # Esperar archivo
+                    pending_file = "data_activa/pending_2fa.txt"
+                    if os.path.exists(pending_file):
+                        os.remove(pending_file)
+                        
+                    codigo_sms = None
+                    print("⌛ Esperando código SMS vía Telegram (Timeout: 120 segs)...")
+                    for wait_sms in range(120):
+                        if os.path.exists(pending_file):
+                            try:
+                                with open(pending_file, "r") as f:
+                                    codigo_sms = f.read().strip()
+                                os.remove(pending_file)
+                            except: pass
+                        if codigo_sms: break
+                        time.sleep(1)
+                        
+                    if not codigo_sms:
+                        print("⏳ Tiempo agotado esperando código SMS.")
+                        continue
+                        
+                    print(f"✅ Código interceptado. Ingresando...")
                     print("="*50 + "\n")
                     
                     # Rellenar la casilla del código
