@@ -104,10 +104,10 @@ nano credentials.py # Completa tus datos
 docker compose up -d
 ```
 
-### 4. Ejecución del Agente (Controlador)
-Si no usas Docker para el bot de Python, inicia el agente para recibir notificaciones y manejar el 2FA:
+### 4. Gestión del Agente (Controlador)
+El agente de Telegram se encarga de las ejecuciones programadas y el manejo de 2FA. Se levanta automáticamente con Docker, pero puedes monitorearlo con:
 ```bash
-nohup python3 telegram_agent.py &
+docker logs -f vinibot-agent
 ```
 
 ### 5. Acceso Remoto
