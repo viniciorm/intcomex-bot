@@ -5,6 +5,17 @@ Bot de producción de alto rendimiento diseñado para sincronizar miles de produ
 > [!IMPORTANT]
 > **Arquitectura ViniBot Turbo**: Esta versión ha sido rediseñada para eliminar cuellos de botella secuenciales. El bot ahora utiliza **Multi-threading** y **Batch API Operations**, reduciendo el tiempo de ejecución de 5+ horas a menos de 45 minutos.
 
+## 🛠️ Stack Tecnológico
+- **Lenguaje**: Python 3.11+
+- **Automatización Web**: Selenium (Chrome Headless)
+- **Motor de Orquestación**: n8n (Dockerized)
+- **Inteligencia Artificial**: OpenAI API (GPT-4o)
+- **E-commerce API**: WooCommerce REST API (Batch support)
+- **Infraestructura**: Docker & Docker Compose
+- **Puertos Requeridos**: 
+  - `5678`: Interfaz de n8n.
+  - `8000`: Dashboard de métricas.
+
 ## 🚀 Lo nuevo en v3.0.0 (Vini Turbo)
 
 1.  **Procesamiento Paralelo (Multithreading)**: 
