@@ -111,8 +111,13 @@ docker logs -f vinibot-agent
 ```
 
 ### 5. Acceso Remoto
-- **n8n**: `http://tu-ip-vps:5678`
 - **Dashboard**: `http://tu-ip-vps:8000/dashboard/index.html` (requiere `python3 -m http.server 8000 &` ejecutándose)
+
+### 6. Configuración de n8n (Flujos)
+Una vez dentro de n8n, debes importar los flujos de IA que se encuentran en la carpeta `/n8n` del proyecto:
+1. Ve a **Workflows** -> **Add Workflow** -> **Import from File**.
+2. Selecciona `flujo_productos_ia_webhook.json` (es el flujo principal que recibe los datos del bot).
+3. Configura tus credenciales de OpenAI/Groq dentro de n8n.
 
 ---
 
