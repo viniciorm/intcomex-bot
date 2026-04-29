@@ -104,9 +104,15 @@ nano credentials.py # Completa tus datos
 docker compose up -d
 ```
 
-### 4. Acceso Remoto
+### 4. Ejecución del Agente (Controlador)
+Si no usas Docker para el bot de Python, inicia el agente para recibir notificaciones y manejar el 2FA:
+```bash
+nohup python3 telegram_agent.py &
+```
+
+### 5. Acceso Remoto
 - **n8n**: `http://tu-ip-vps:5678`
-- **Dashboard**: `http://tu-ip-vps:8000/dashboard/index.html` (requiere `python -m http.server 8000` ejecutándose)
+- **Dashboard**: `http://tu-ip-vps:8000/dashboard/index.html` (requiere `python3 -m http.server 8000 &` ejecutándose)
 
 ---
 
