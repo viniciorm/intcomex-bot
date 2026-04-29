@@ -19,6 +19,20 @@ services:
     # mediante un scheduler externo si se prefiere.
     command: ["python", "main_orchestrator.py", "all"]
 
+  telegram-agent:
+    build: .
+    container_name: vinibot-agent
+    restart: always
+    volumes:
+      - ./data_activa:/app/data_activa
+      - ./downloads:/app/downloads
+      - ./config:/app/config
+      - ./credentials.py:/app/credentials.py
+    environment:
+      - TZ=America/Santiago
+      - PYTHONUNBUFFERED=1
+    command: ["python", "telegram_agent.py"]
+
   n8n:
     image: n8nio/n8n:latest
     container_name: n8n-automation
