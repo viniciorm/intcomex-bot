@@ -79,6 +79,37 @@ python main_orchestrator.py all
 └── requirements.txt      # Dependencias
 ```
 
+## 🚀 Guía de Instalación en VPS (Debian/Ubuntu)
+
+Para desplegar el bot en un servidor remoto (DigitalOcean, AWS, etc.):
+
+### 1. Preparación del Sistema
+```bash
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y git curl docker.io docker-compose
+```
+
+### 2. Instalación
+```bash
+git clone https://github.com/viniciorm/intcomex-bot.git
+cd intcomex-bot
+
+# Configurar credenciales
+cp credentials.example.py credentials.py
+nano credentials.py # Completa tus datos
+```
+
+### 3. Despliegue con Docker
+```bash
+docker compose up -d
+```
+
+### 4. Acceso Remoto
+- **n8n**: `http://tu-ip-vps:5678`
+- **Dashboard**: `http://tu-ip-vps:8000/dashboard/index.html` (requiere `python -m http.server 8000` ejecutándose)
+
+---
+
 ## 🔒 Seguridad y Robustez
 - **Batch Resilience**: Manejo inteligente de fallos en lotes (Sync Limbo Repair).
 - **Concurrency Control**: Hilos configurables para no saturar el servidor host.

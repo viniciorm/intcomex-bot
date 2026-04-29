@@ -8,9 +8,10 @@ STATE_FILE = os.path.join(DATA_PATH, "estado_productos.json")
 HISTORICO_FILE = os.path.join(DATA_PATH, "historico_stats.json")
 
 # Lógica de HH (Horas Hombre) ahorradas por producto
-HH_SYNC = 5 / 60   # 5 min
-HH_IMG = 3 / 60    # 3 min
-HH_IA = 10 / 60    # 10 min
+HH_SYNC = 5 / 60   # 5 min (Estructural: Creación inicial)
+HH_IMG = 3 / 60    # 3 min (Estructural: Búsqueda de imagen)
+HH_IA = 10 / 60    # 10 min (Estructural: Enriquecimiento)
+HH_MANTENCION = 1 / 60 # 1 min (Operacional: Revisión diaria de precio/stock por producto)
 
 def load_json(filepath):
     if os.path.exists(filepath):
@@ -38,8 +39,11 @@ def generate_daily_snapshot(nuevos_count=0, duration=0):
     con_ia = sum(1 for p in state.values() if p.get("ia_mejorado"))
     agotados = sum(1 for p in state.values() if p.get("stock", 0) <= 0)
     
-    # Cálculo de HH Ahorradas
-    hh_totales = (en_woo * HH_SYNC) + (con_imagen * HH_IMG) + (con_ia * HH_IA)
+    # Cálculo de HH Ahorradas Estructurales (Una sola vez por producto)
+    hh_estructurales = (en_woo * HH_SYNC) + (con_imagen * HH_IMG) + (con_ia * HH_IA)
+    
+    # Cálculo de HH Operacionales de esta ejecución (Revisar precios/stock de todo el catálogo)
+    hh_mantencion_run = total_productos * HH_MANTENCION
     
     today = datetime.now().strftime("%Y-%m-%d")
     
@@ -47,21 +51,44 @@ def generate_daily_snapshot(nuevos_count=0, duration=0):
     historico = load_json(HISTORICO_FILE)
     if not isinstance(historico, list): historico = []
     
-    # Obtener HH de ayer para el delta
+    # Obtener HH estructurales de ayer para el delta
     hh_ayer = 0
+    hh_mantencion_acumulada_historica = 0
     if historico:
-        # Filtrar por fecha distinta a hoy para encontrar el "ayer" real (última ejecución)
+        # Filtrar por fecha distinta a hoy
         entradas_anteriores = [s for s in historico if s["fecha"] != today]
         if entradas_anteriores:
-            hh_ayer = entradas_anteriores[-1].get("hh_ahorradas", 0)
+            hh_ayer = entradas_anteriores[-1].get("hh_estructurales", entradas_anteriores[-1].get("hh_ahorradas", 0))
+            
+        # Sumar toda la mantencion acumulada en el pasado
+        for s in entradas_anteriores:
+            hh_mantencion_acumulada_historica += s.get("hh_mantencion_diaria", 0)
 
-    hh_hoy_ganadas = max(0, hh_totales - hh_ayer)
+    # Las HH ganadas HOY por estructura (productos nuevos)
+    hh_ganadas_estructura = max(0, hh_estructurales - hh_ayer)
     
+    # Obtener entrada de hoy si existe para sumar
+    entrada_hoy = next((s for s in historico if s["fecha"] == today), None)
+    
+    if entrada_hoy:
+        nuevos_count_total = entrada_hoy.get("nuevos_productos", 0) + nuevos_count
+        duration_total = entrada_hoy.get("duracion_segundos", 0) + duration
+        hh_mantencion_diaria = entrada_hoy.get("hh_mantencion_diaria", 0) + hh_mantencion_run
+    else:
+        nuevos_count_total = nuevos_count
+        duration_total = duration
+        hh_mantencion_diaria = hh_mantencion_run
+
+    # Las HH ganadas HOY totales = Nuevos productos + La revisión del catálogo
+    hh_hoy_ganadas = hh_ganadas_estructura + hh_mantencion_diaria
+    
+    # El Total Histórico = Estructurales actuales + Toda la mantención pasada + La mantención de hoy
+    hh_totales = hh_estructurales + hh_mantencion_acumulada_historica + hh_mantencion_diaria
+
     # Calcular Velocidad (Human vs Bot)
-    # Velocidad = HH Ganadas / (Duracion Bot en horas)
     velocidad = 0
-    if duration > 0 and hh_hoy_ganadas > 0:
-        horas_bot = duration / 3600
+    if duration_total > 0 and hh_hoy_ganadas > 0:
+        horas_bot = duration_total / 3600
         velocidad = round(hh_hoy_ganadas / horas_bot, 1)
 
     # Crear nueva entrada
@@ -73,11 +100,13 @@ def generate_daily_snapshot(nuevos_count=0, duration=0):
         "con_imagen": con_imagen,
         "con_ia": con_ia,
         "agotados": agotados,
+        "hh_estructurales": round(hh_estructurales, 2),
+        "hh_mantencion_diaria": round(hh_mantencion_diaria, 2),
         "hh_ahorradas": round(hh_totales, 2),
         "hh_ganadas_hoy": round(hh_hoy_ganadas, 2),
         "velocidad": velocidad,
-        "nuevos_productos": nuevos_count,
-        "duracion_segundos": round(duration, 2)
+        "nuevos_productos": nuevos_count_total,
+        "duracion_segundos": round(duration_total, 2)
     }
     
     # Evitar duplicados del mismo día (actualizar si ya existe)

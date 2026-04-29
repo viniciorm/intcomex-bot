@@ -1017,7 +1017,15 @@ def sincronizar_csv(archivo_csv, category_name, valor_dolar):
             # Actualizar estado
             is_new = sku not in state
             
-            state[sku] = {
+            if is_new:
+                state[sku] = {
+                    "tiene_imagen": False,
+                    "subido_a_woo": False,
+                    "ia_mejorado": False,
+                    "ia_intentos": 0
+                }
+            
+            state[sku].update({
                 "sku": sku,
                 "nombre": description,
                 "cost_price": precio_costo_clp,
@@ -1027,11 +1035,8 @@ def sincronizar_csv(archivo_csv, category_name, valor_dolar):
                 "categoria_csv": str(row[cat_col]) if cat_col and pd.notna(row[cat_col]) else None,
                 "subcategoria_csv": str(row[subcat_col]) if subcat_col and pd.notna(row[subcat_col]) else None,
                 "last_updated": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "tiene_imagen": state.get(sku, {}).get("tiene_imagen", False),
-                "subido_a_woo": state.get(sku, {}).get("subido_a_woo", False),
-                # Marcar para subir a WooCommerce si cambiaron datos críticos o es nuevo
                 "pendiente_sync_woo": True 
-            }
+            })
             
             if is_new:
                 stats["creados"] += 1
