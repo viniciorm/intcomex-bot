@@ -21,7 +21,9 @@ except ImportError:
 # URLs y Archivos
 DATA_PATH = "data_activa"
 STATE_FILE = os.path.join(DATA_PATH, "estado_productos.json")
-N8N_WEBHOOK_URL = "http://localhost:5678/webhook/ia-transformer" 
+# En Docker: usar el nombre del contenedor n8n. En local: localhost.
+N8N_HOST = os.environ.get("N8N_HOST", "n8n-automation")
+N8N_WEBHOOK_URL = f"http://{N8N_HOST}:5678/webhook/ia-transformer"
 
 # Inicializar API WooCommerce
 wcapi = API(

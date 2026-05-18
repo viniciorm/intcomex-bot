@@ -1,9 +1,21 @@
-# 🤖 Bot de Sincronización Intcomex -> WooCommerce `v3.0.0 - VINI TURBO` 🚀
+# 🤖 Bot de Sincronización Intcomex -> WooCommerce `v3.1.0 - VINI TURBO` 🚀
 
 Bot de producción de alto rendimiento diseñado para sincronizar miles de productos desde Intcomex Chile a WooCommerce en tiempo récord mediante arquitectura paralela.
 
 > [!IMPORTANT]
 > **Arquitectura ViniBot Turbo**: Esta versión ha sido rediseñada para eliminar cuellos de botella secuenciales. El bot ahora utiliza **Multi-threading** y **Batch API Operations**, reduciendo el tiempo de ejecución de 5+ horas a menos de 45 minutos.
+
+## 🚀 Lo nuevo en v3.1.0 (Autosuficiencia y Resiliencia)
+
+1.  **Mecanismo Autorreparable (Self-healing)**:
+    *   El bot monitorea activamente la conectividad DNS y de red. Si detecta 5 fallos de conexión consecutivos con los servidores de Telegram, fuerza una caída controlada (`os._exit(1)`).
+    *   Gracias a la política `restart: always` de Docker Compose, el contenedor se recrea y levanta automáticamente con una interfaz de red y DNS limpia, evitando quedar desconectado de manera indefinida.
+2.  **Comando `/resume` en Telegram**:
+    *   Si el orquestador es interrumpido a mitad de camino (por un reinicio del host, caída del servidor, etc.), el comando `/resume` reanuda la ejecución exactamente en la fase donde quedó pendiente (saltando las fases A y B ya procesadas).
+3.  **Comando `/status` Inteligente**:
+    *   Muestra el estado de la última ejecución: `✅ COMPLETADO`, `❌ ERROR` (con detalle del fallo), o `⚠️ INCOMPLETO` si se interrumpió de manera abrupta. En caso de estar incompleto, sugiere automáticamente usar `/resume`.
+4.  **Transparencia de Logs y Dashboard**:
+    *   Se corrigió el log de la Fase C para que muestre exactamente qué se está actualizando (distinguiendo entre productos y cargas de imágenes) evitando reportes engañosos en el panel de control.
 
 ## 🛠️ Stack Tecnológico
 - **Lenguaje**: Python 3.11+

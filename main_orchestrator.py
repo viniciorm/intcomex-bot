@@ -348,10 +348,10 @@ def main():
             
             if pending_upload:
                 print(f"\n[FASE C] Iniciando Sincronización de {len(pending_upload)} productos...")
-                log_activity(f"Iniciando Fase C: Subida a Woo (Batch) de {len(pending_upload)} imgs", "WooCommerce", "fa-cloud-upload-alt")
+                log_activity(f"Iniciando Fase C: Subida a Woo (Batch) de {len(pending_upload)} productos/imgs", "WooCommerce", "fa-cloud-upload-alt")
                 procesados = run_image_uploader()
                 resumen["uploader"]["vinculadas"] = procesados
-                log_activity(f"Fase C Completada. Vinculadas: {procesados}", "WooCommerce", "fa-link")
+                log_activity(f"Fase C Completada. Vinculadas/Actualizadas: {procesados}", "WooCommerce", "fa-link")
             else:
                 print("\n[FASE C] No hay datos ni imágenes pendientes de sincronizar. Saltando.")
 
@@ -385,6 +385,8 @@ def main():
         
         # Enviar reporte final siempre que haya ocurrido algo o haya un error
         if mode != "none":
+            if not error_global:
+                log_activity(f"Orquestador finalizado (Modo: {mode.upper()})", "Sistema", "fa-check-double")
             enviar_reporte_consolidado(resumen, error_critico=error_global)
             enviar_reporte_telegram(resumen, error_critico=error_global)
     

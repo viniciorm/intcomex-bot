@@ -1,10 +1,15 @@
 version: '3.8'
 
 services:
-  bot:
+  # ─────────────────────────────────────────────────────────────────
+  # telegram-agent: Único orquestador. Corre 24/7, escucha Telegram
+  # y ejecuta main_orchestrator.py internamente a las 08:00 y 15:00
+  # o cuando se le ordena con /run_now.
+  # ─────────────────────────────────────────────────────────────────
+  telegram-agent:
     build: .
-    container_name: intcomex-bot
-    restart: unless-stopped
+    container_name: vinibot-agent
+    restart: always
     volumes:
       - ./data_activa:/app/data_activa
       - ./product_images:/app/product_images
@@ -14,22 +19,6 @@ services:
     environment:
       - TZ=America/Santiago
       - HEADLESS=true
-      - PYTHONUNBUFFERED=1
-    # Se puede usar crontab dentro del contenedor o lanzar este servicio 
-    # mediante un scheduler externo si se prefiere.
-    command: ["python", "main_orchestrator.py", "all"]
-
-  telegram-agent:
-    build: .
-    container_name: vinibot-agent
-    restart: always
-    volumes:
-      - ./data_activa:/app/data_activa
-      - ./downloads:/app/downloads
-      - ./config:/app/config
-      - ./credentials.py:/app/credentials.py
-    environment:
-      - TZ=America/Santiago
       - PYTHONUNBUFFERED=1
     command: ["python", "telegram_agent.py"]
 

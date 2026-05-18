@@ -29,7 +29,7 @@ class WooBatchManager:
     def flush(self):
         """Sends all queued updates and creations to WooCommerce."""
         if not self.update_queue and not self.create_queue:
-            return 0
+            return {}
         
         up_count = len(self.update_queue)
         cr_count = len(self.create_queue)

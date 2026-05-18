@@ -58,8 +58,10 @@ def download_image(url, sku):
     return None
 
 def setup_driver():
+    is_headless = os.getenv("HEADLESS", "true").lower() == "true"
     options = ChromeOptions()
-    options.add_argument("--headless=new")
+    if is_headless:
+        options.add_argument("--headless=new")
     options.add_argument("--disable-gpu")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")

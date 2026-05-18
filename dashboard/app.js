@@ -10,6 +10,7 @@ async function fetchData(url) {
         return await response.json();
     } catch (e) {
         console.warn("Fetch error: " + url, e);
+        alert("Error cargando " + url + ": " + e.message + "\nAsegúrate de estar ejecutando el servidor desde la carpeta raíz del proyecto.");
         return null;
     }
 }
