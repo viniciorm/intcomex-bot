@@ -921,6 +921,12 @@ def sincronizar_csv(archivo_csv, category_name, valor_dolar):
     nuevos_skus = []
     
     state = load_state()
+    
+    # Resetear 'en_csv_reciente' a False para todos los SKUs de esta categoría antes de procesar
+    print(f"  🔄 Limpiando estado de catálogo ('en_csv_reciente' = False) para la categoría '{category_name}'...")
+    for sku, data in state.items():
+        if data.get("categoria_principal") == category_name:
+            data["en_csv_reciente"] = False
     print(f"  💵 Usando valor del dólar: ${valor_dolar:,.2f} CLP")
     
     # Lectura ULTRA robusta
@@ -1035,7 +1041,8 @@ def sincronizar_csv(archivo_csv, category_name, valor_dolar):
                 "categoria_csv": str(row[cat_col]) if cat_col and pd.notna(row[cat_col]) else None,
                 "subcategoria_csv": str(row[subcat_col]) if subcat_col and pd.notna(row[subcat_col]) else None,
                 "last_updated": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "pendiente_sync_woo": True 
+                "pendiente_sync_woo": True,
+                "en_csv_reciente": True
             })
             
             if is_new:
