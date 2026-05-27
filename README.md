@@ -95,18 +95,49 @@ Para evitar hardcodear IPs públicas o abrir puertos inseguros, la lógica de co
 
 ---
 
+## 📊 Visualización de KPIs (Dashboard)
+
+El ecosistema cuenta con una interfaz web interactiva que te permite monitorizar los indicadores clave de rendimiento (KPIs), el ROI de la IA, el tiempo de procesamiento y el estado de la sincronización.
+
+### Cómo acceder al Dashboard:
+
+* **En Producción (VPS - Camino B)**:
+  Abre tu navegador e ingresa a:
+  ```text
+  http://<IP_DE_TU_VPS>:8000/dashboard/
+  ```
+  *(Asegúrate de que el puerto `8000` esté abierto en las reglas de firewall o grupo de seguridad de tu VPS).*
+
+* **En Desarrollo Local (Camino A)**:
+  Levanta un servidor local desde la raíz del proyecto:
+  ```bash
+  python -m http.server 8000
+  ```
+  E ingresa en tu navegador a:
+  ```text
+  http://localhost:8000/dashboard/
+  ```
+
+### Qué información muestra:
+1. **Estado de Sincronización**: Indica si el bot está en espera de código 2FA, descargando CSVs, subiendo imágenes o procesando IA.
+2. **Historial de Actividades**: Logs detallados legibles del orquestador en tiempo real.
+3. **Métricas de Rendimiento**: Velocidad de carga (productos por minuto) e impacto de la optimización de títulos/descripciones.
+4. **Seguridad de Datos**: La configuración de Nginx en Docker monta las carpetas únicamente en modo **solo lectura (`ro`)**, exponiendo los JSONs necesarios para el dashboard sin peligro de revelar contraseñas o archivos Python sensibles como `credentials.py`.
+
+---
+
 ## 🔄 Despliegue Automático (CI/CD)
 
-El repositorio incluye un pipeline de GitHub Actions configurado en [`.github/workflows/deploy.yml`](file:///.github/workflows/deploy.yml). Cada vez que haces un `git push` a la rama `main`, el pipeline se conecta de forma segura a tu VPS vía SSH, actualiza el código y recrea el agente del bot sin que tengas que intervenir manualmente.
+El repositorio incluye un pipeline de GitHub Actions configurado en [`.github/workflows/deploy.yml`](file:///.github/workflows/deploy.yml). Cada vez que haces un `git push` a la rama `main`, el pipeline se conecta de forma segura a tu VPS vía SSH, limpia cualquier cambio local para evitar conflictos y reconstruye los contenedores de forma automatizada.
 
 ### Pasos para Activar el Despliegue Continuo en GitHub:
 1. Entra a la página web de tu repositorio en GitHub.
 2. Ve a **Settings** -> **Secrets and variables** -> **Actions**.
-3. Haz clic en **New repository secret** y registra de forma segura los siguientes 4 secretos:
+3. Haz clic en **New repository secret** y registra los siguientes 4 secretos:
    * **`VPS_HOST`**: La dirección IP pública de tu servidor VPS.
-   * **`VPS_USER`**: El usuario del VPS (normalmente `root`).
-   * **`VPS_SSH_KEY`**: El contenido completo de tu llave SSH privada de acceso al servidor (el contenido de tu archivo `.pem` o `id_rsa`).
-   * **`VPS_PORT`**: El puerto de conexión SSH de tu servidor (típicamente `22`).
+   * **`VPS_USER`**: El usuario del VPS (ej: `root`).
+   * **`VPS_PASSWORD`**: La contraseña SSH del usuario del VPS (necesaria para la conexión segura).
+   * **`VPS_PORT`**: El puerto de conexión SSH de tu servidor (normalmente `22`).
 
 ---
 
