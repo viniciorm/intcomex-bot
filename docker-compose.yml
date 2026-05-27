@@ -5,7 +5,7 @@ networks:
     driver: bridge
 
 services:
-  # 1. Agente de Telegram e Intcomex Bot (Corre 24/7 y orquesta las tareas)
+  # 1. Agente de Telegram e Intcomex Bot (Daemon orquestador de tareas 24/7)
   telegram-agent:
     build:
       context: .
@@ -22,7 +22,7 @@ services:
     environment:
       - TZ=America/Santiago             # Zona horaria de Chile para la programación de tareas
       - HEADLESS=true                  # Modo headless para Selenium
-      - PYTHONUNBUFFERED=1             # Muestra los logs en tiempo real
+      - PYTHONUNBUFFERED=1             # Muestra los logs en tiempo real sin buffers
     command: ["python", "telegram_agent.py"]
     deploy:
       resources:
