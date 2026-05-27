@@ -6,6 +6,8 @@ import pytz
 import telebot
 import threading
 import json
+import socket
+import requests
 from datetime import datetime, timedelta
 
 # Importar credenciales (usar un archivo dummy si no existe para evitar errores)
@@ -46,7 +48,21 @@ def send_status(message):
     if allowed_chat_id and message.chat.id == allowed_chat_id:
         tz = pytz.timezone('America/Santiago')
         now = datetime.now(tz)
-        msg = f"✅ Agente ViniBot en línea.\n🕒 Hora actual (Stgo): {now.strftime('%H:%M:%S')}\n\nProgramación de cron:\n"
+        
+        # Detectar IP pública para saber si es VPS o Local
+        try:
+            public_ip = requests.get('https://api.ipify.org', timeout=3).text.strip()
+        except Exception:
+            public_ip = "No disponible"
+            
+        hostname = socket.gethostname()
+        
+        msg = f"✅ *Agente ViniBot en línea.*\n"
+        msg += f"🖥️ *Servidor:* `{hostname}`\n"
+        msg += f"🌐 *IP Pública:* `{public_ip}`\n"
+        msg += f"🕒 *Hora actual (Stgo):* {now.strftime('%H:%M:%S')}\n\n"
+        msg += "*Programación de cron:*\n"
+        
         jobs = schedule.get_jobs()
         if not jobs:
             msg += "No hay tareas programadas."
