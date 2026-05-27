@@ -15,8 +15,14 @@ except ImportError:
     exit(1)
 
 # URLs a monitorear
-N8N_URL = "http://localhost:5678/healthz" # O el endpoint de n8n
+N8N_HOST = os.environ.get("N8N_HOST", "n8n-automation")
+N8N_URL = f"http://{N8N_HOST}:5678/"
 INTCOMEX_URL = "https://store.intcomex.com"
+
+# Cabecera simulada para evitar bloqueos de seguridad
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+}
 
 def check_woo():
     """Verifica la API de WooCommerce."""
@@ -24,7 +30,7 @@ def check_woo():
         # Petición simple para ver si responde
         url = f"{WC_URL}/wp-json/wc/v3/system_status"
         auth = (WC_CONSUMER_KEY, WC_CONSUMER_SECRET)
-        response = requests.get(url, auth=auth, timeout=10)
+        response = requests.get(url, auth=auth, headers=HEADERS, timeout=10)
         return response.status_code == 200
     except: return False
 
@@ -32,7 +38,7 @@ def check_n8n():
     """Verifica si n8n está arriba."""
     try:
         # n8n suele responder 200 en su raíz o /healthz
-        response = requests.get("http://localhost:5678/", timeout=5)
+        response = requests.get(N8N_URL, timeout=5)
         return response.status_code == 200
     except: return False
 
