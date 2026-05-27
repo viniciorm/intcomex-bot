@@ -540,8 +540,8 @@ def login_intcomex(driver, username, password):
                     
                     # Intentar hacer clic en el botón "Enviar Código" si está presente
                     try:
-                        # En Azure AD B2C, suele ser un botón con id 'continue' que dice Enviar Código
-                        botones_enviar = driver.find_elements(By.XPATH, "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÓÚ', 'abcdefghijklmnopqrstuvwxyzáéíóú'), 'enviar')] | //button[@id='continue']")
+                        # En Azure AD B2C, suele ser un botón con id 'sendCode' o 'continue'
+                        botones_enviar = driver.find_elements(By.XPATH, "//button[@id='sendCode'] | //button[@id='continue'] | //button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÓÚ', 'abcdefghijklmnopqrstuvwxyzáéíóú'), 'enviar')]")
                         btn_enviar = next((b for b in botones_enviar if b.is_displayed()), None)
                         if btn_enviar:
                             print("🖱️ Haciendo clic en 'Enviar Código'...")
