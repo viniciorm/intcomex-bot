@@ -18,5 +18,6 @@ jobs:
           port: ${{ secrets.VPS_PORT }}
           script: |
             cd /root/tupartnerti
-            git pull origin main
-            docker compose up -d --build telegram-agent
+            git fetch origin
+            git reset --hard origin/main
+            docker compose up -d --build
