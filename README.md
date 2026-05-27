@@ -124,7 +124,8 @@ nano credentials.py # Completa tus datos
 
 ### 3. Despliegue con Docker
 ```bash
-docker compose up -d
+# Levantar todos los servicios (ViniBot Agent, n8n, Dashboard seguro)
+docker compose up -d --build
 ```
 
 ### 4. Gestión del Agente (Controlador)
@@ -133,8 +134,10 @@ El agente de Telegram se encarga de las ejecuciones programadas y el manejo de 2
 docker logs -f vinibot-agent
 ```
 
-### 5. Acceso Remoto
-- **Dashboard**: `http://tu-ip-vps:8000/dashboard/index.html` (requiere `python3 -m http.server 8000 &` ejecutándose)
+### 5. Acceso Remoto y Seguridad
+- **Dashboard**: `http://tu-ip-vps:8000/dashboard/index.html`
+  *(Servido de forma segura y aislada mediante el contenedor Nginx en el puerto 8000. No requiere comandos adicionales y protege tu archivo `credentials.py` de exposición pública).*
+- **n8n**: `http://tu-ip-vps:5678/`
 
 ### 6. Configuración de n8n (Flujos e IA)
 El enriquecimiento de productos requiere una conexión con **OpenAI**.

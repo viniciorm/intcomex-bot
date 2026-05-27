@@ -1,48 +1,69 @@
 version: '3.8'
 
+networks:
+  vinibot_network:
+    driver: bridge
+
 services:
-  # ─────────────────────────────────────────────────────────────────
-  # telegram-agent: Único orquestador. Corre 24/7, escucha Telegram
-  # y ejecuta main_orchestrator.py internamente a las 08:00 y 15:00
-  # o cuando se le ordena con /run_now.
-  # ─────────────────────────────────────────────────────────────────
+  # 1. Agente de Telegram e Intcomex Bot (Corre 24/7 y orquesta las tareas)
   telegram-agent:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: vinibot-agent
-    restart: always
+    networks:
+      - vinibot_network
     volumes:
       - ./data_activa:/app/data_activa
       - ./product_images:/app/product_images
       - ./downloads:/app/downloads
-      - ./config:/app/config
+      - ./config:/app/config            # Mapeo dinámico de categorías (Windows/Linux)
       - ./credentials.py:/app/credentials.py
     environment:
-      - TZ=America/Santiago
-      - HEADLESS=true
-      - PYTHONUNBUFFERED=1
+      - TZ=America/Santiago             # Zona horaria de Chile para la programación de tareas
+      - HEADLESS=true                  # Modo headless para Selenium
+      - PYTHONUNBUFFERED=1             # Muestra los logs en tiempo real
     command: ["python", "telegram_agent.py"]
+    deploy:
+      resources:
+        limits:
+          memory: 3000M  # Espacio para Selenium Headless y multithreading continuo
+    restart: always
 
+  # 2. n8n Automatización (Self-hosted)
   n8n:
-    image: n8nio/n8n:latest
+    image: docker.n8n.io/n8nio/n8n:latest
     container_name: n8n-automation
-    user: "root"
-    restart: unless-stopped
+    networks:
+      - vinibot_network
     ports:
       - "5678:5678"
     environment:
-      - N8N_HOST=localhost
-      - N8N_PORT=5678
-      - N8N_PROTOCOL=http
-      - N8N_BLOCK_FS_WRITE_ACCESS=false
-      - NODE_ENV=production
-      - WEBHOOK_URL=http://localhost:5678/
       - GENERIC_TIMEZONE=America/Santiago
+      - N8N_ENCRYPTION_KEY=vinibot_secret_key_prod
+      - N8N_SECURE_COOKIE=false  # Desactiva cookies seguras para permitir acceso por IP pública en HTTP
     volumes:
-      - n8n_data:/root/.n8n
-      - ./n8n:/app/n8n_backup
-      - C:/n8n-files:/files
+      - n8n_data:/home/node/.n8n
+      - ./n8n-files:/files       # Ruta relativa compatible con Windows y Linux
+      - ./n8n:/app/n8n_backup    # Volumen de respaldo de flujos
+    deploy:
+      resources:
+        limits:
+          memory: 2500M  # Colchón para flujos con procesamiento JSON de OpenAI
+    restart: always
+
+  # 3. Servidor Web Seguro para el Dashboard (Nginx)
+  dashboard-ui:
+    image: nginx:alpine
+    container_name: vinibot-dashboard
+    ports:
+      - "8000:80"
+    volumes:
+      - ./dashboard:/usr/share/nginx/html/dashboard:ro
+      - ./data_activa:/usr/share/nginx/html/data_activa:ro
+    networks:
+      - vinibot_network
+    restart: always
 
 volumes:
-  n8n_data:
-    external: true
-    name: n8n_n8n_data
+  n8n_data:  # Administrado internamente por Docker de forma automática
