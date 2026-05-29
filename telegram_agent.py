@@ -174,29 +174,37 @@ def run_schedule():
         schedule.run_pending()
         time.sleep(30) # Chequear cada 30 segundos
 
-def job_wrapper():
+def job_wrapper(expected_hour):
     """Wrapper para la tarea de schedule que lanza el thread.
     Detecta si el job se disparó tarde (por suspensión del PC) y lo ignora.
     """
-    now = datetime.now()
-    # Si la tarea se dispara más de 30 minutos tarde, es probable que el PC se despertó
-    # de una suspensión y el scheduler está ejecutando jobs acumulados. Se ignoran.
-    last_run = schedule.jobs[0].last_run if schedule.jobs else None
-    if last_run and (now - last_run) > timedelta(hours=2):
-        msg = f"⏭️ Job omitido: detectada suspensión del PC (último run: {last_run.strftime('%H:%M')}). Se ejecutará en la próxima hora programada."
+    tz = pytz.timezone('America/Santiago')
+    now = datetime.now(tz)
+    
+    # Calcular la hora esperada para hoy
+    horas, minutos = map(int, expected_hour.split(':'))
+    expected_time = now.replace(hour=horas, minute=minutos, second=0, microsecond=0)
+    
+    # Si la diferencia es mayor a 30 minutos (1800 segundos), se considera un job atrasado (ej. por suspensión)
+    # Usamos abs() por si se dispara unos milisegundos/segundos antes o después
+    diff_seconds = abs((now - expected_time).total_seconds())
+    
+    if diff_seconds > 1800:
+        msg = f"⏭️ Job de las {expected_hour} omitido: disparado muy tarde ({now.strftime('%H:%M')}). Se ejecutará en la próxima hora programada."
         print(f"[{now}] {msg}")
         if allowed_chat_id:
             bot.send_message(allowed_chat_id, msg)
         return
-    print(f"[{now}] Lanzando tarea programada...")
+        
+    print(f"[{now}] Lanzando tarea programada de las {expected_hour}...")
     threading.Thread(target=ejecutar_orquestador).start()
 
 if __name__ == '__main__':
     print("🤖 Iniciando Agente de Telegram ViniBot...")
     
     # Programar las ejecuciones asegurando la zona horaria de Chile sin importar dónde esté el PC físicamente
-    schedule.every().day.at("08:00", "America/Santiago").do(job_wrapper)
-    schedule.every().day.at("15:00", "America/Santiago").do(job_wrapper)
+    schedule.every().day.at("08:00", "America/Santiago").do(job_wrapper, "08:00")
+    schedule.every().day.at("15:00", "America/Santiago").do(job_wrapper, "15:00")
     
     print("🕒 Tareas programadas:")
     for j in schedule.get_jobs():
