@@ -128,6 +128,44 @@ def run_image_bot(skus_to_process=None, max_workers=10):
                     downloaded_count += 1
                     print(f"    ✅ Imagen OK: {sku}")
 
+    # Fallback Selenium para SKUs que fallaron (ej: por bloqueo de Cloudflare en VPS)
+    failed_skus = [sku for sku in target_skus if sku not in results]
+    if failed_skus:
+        print(f"\n    ⚠️ {len(failed_skus)} SKUs fallaron vía rápida. Intentando con Selenium (Modo Seguro)...")
+        driver = None
+        try:
+            driver = setup_driver()
+            for sku in failed_skus:
+                search_url = SEARCH_URL_TEMPLATE.format(sku=sku)
+                try:
+                    driver.get(search_url)
+                    import re
+                    # Buscar URLs de imágenes en el código fuente renderizado
+                    images = re.findall(r'https?://[^\s<>"]+?/[^\s<>"]+?\.[jJ][pP][gG]', driver.page_source)
+                    img_url = None
+                    for img in images:
+                        if sku in img and ("intcomex" in img or "1worldsync" in img):
+                            img_url = img
+                            break
+                    
+                    if img_url:
+                        local_path = download_image(img_url, sku)
+                        if local_path:
+                            results[sku] = local_path
+                            downloaded_count += 1
+                            print(f"    ✅ Imagen OK (Selenium): {sku}")
+                        else:
+                            print(f"    ❌ Error al guardar imagen: {sku}")
+                    else:
+                        print(f"    ❌ Imagen no encontrada en portal: {sku}")
+                except Exception as e:
+                    print(f"    ❌ Error de Selenium para {sku}: {str(e)[:50]}")
+        except Exception as e:
+            print(f"    ❌ No se pudo iniciar Selenium: {e}")
+        finally:
+            if driver:
+                driver.quit()
+
     # Actualizar estado global
     if results:
         for sku, path in results.items():
@@ -140,7 +178,7 @@ def run_image_bot(skus_to_process=None, max_workers=10):
             })
         save_state(state)
         
-    print(f"\n✅ Proceso finalizado. {downloaded_count} imágenes descargadas en paralelo.")
+    print(f"\n✅ Proceso finalizado. {downloaded_count} imágenes descargadas en total.")
     return downloaded_count
 
 if __name__ == "__main__":
