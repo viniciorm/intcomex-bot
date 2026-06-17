@@ -19,9 +19,10 @@ except ImportError:
 
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 
-# Variables globales para manejar el estado del 2FA
+# Variables globales para manejar el estado
 waiting_for_2fa = False
 pending_2fa_code = None
+current_orchestrator_process = None
 
 def get_allowed_chat_id():
     """Obtiene el Chat ID numérico para comparar"""
@@ -41,7 +42,7 @@ def send_welcome(message):
     elif chat_id != allowed_chat_id:
         bot.reply_to(message, "⛔ No estás autorizado para usar este bot.")
     else:
-        bot.reply_to(message, "🤖 ViniBot Agent activo y escuchando.\nComandos disponibles:\n/run_now - Ejecuta el orquestador inmediatamente\n/resume - Reanuda la ejecución desde el último punto\n/status - Verifica si el bot está programado y activo")
+        bot.reply_to(message, "🤖 ViniBot Agent activo y escuchando.\nComandos disponibles:\n/run_now - Ejecuta el orquestador inmediatamente\n/resume - Reanuda la ejecución desde el último punto\n/stop - Detiene la ejecución actual si hay una en curso\n/status - Verifica si el bot está programado y activo")
 
 @bot.message_handler(commands=['status'])
 def send_status(message):
@@ -116,6 +117,20 @@ def resume_command(message):
         # Lanzar en un hilo separado para no bloquear el bot de telegram
         threading.Thread(target=ejecutar_orquestador, args=(message.chat.id, "resume")).start()
 
+@bot.message_handler(commands=['stop'])
+def stop_command(message):
+    global current_orchestrator_process
+    if allowed_chat_id and message.chat.id == allowed_chat_id:
+        if current_orchestrator_process and current_orchestrator_process.poll() is None:
+            bot.reply_to(message, "🛑 Deteniendo el orquestador de manera forzada...")
+            try:
+                current_orchestrator_process.terminate()
+                bot.reply_to(message, "✅ Proceso detenido exitosamente. Usa /resume o /run_now para volver a iniciar.")
+            except Exception as e:
+                bot.reply_to(message, f"⚠️ Hubo un error al intentar detener el proceso: {e}")
+        else:
+            bot.reply_to(message, "⚠️ No hay ninguna ejecución del orquestador activa en este momento.")
+
 @bot.message_handler(func=lambda message: True)
 def handle_all_messages(message):
     if allowed_chat_id and message.chat.id == allowed_chat_id:
@@ -134,6 +149,7 @@ _orchestrator_running = threading.Lock()
 
 def ejecutar_orquestador(chat_id=None, mode="all"):
     """Ejecuta el main_orchestrator.py como subproceso con lock para evitar ejecuciones paralelas."""
+    global current_orchestrator_process
     if chat_id is None:
         chat_id = allowed_chat_id
 
@@ -149,20 +165,26 @@ def ejecutar_orquestador(chat_id=None, mode="all"):
         if chat_id:
             bot.send_message(chat_id, "⚙️ Comenzando ejecución programada del ViniBot (Orchestrator)...")
 
-        # Escribir PID al lock file para diagnóstico
-        with open(LOCK_FILE, "w") as f:
-            f.write(str(os.getpid()))
-
         # Ejecutamos sin capturar el stdout en PIPEs para evitar DEADLOCKS por buffer lleno (64kb)
-        process = subprocess.Popen(['python', 'main_orchestrator.py', mode])
-        process.wait()
+        current_orchestrator_process = subprocess.Popen(['python', 'main_orchestrator.py', mode])
+        
+        # Escribir el PID real del proceso orquestador al lock file para diagnóstico
+        with open(LOCK_FILE, "w") as f:
+            f.write(str(current_orchestrator_process.pid))
+
+        current_orchestrator_process.wait()
 
         if chat_id:
-            bot.send_message(chat_id, f"🏁 Ejecución del ViniBot terminada. (Código de salida: {process.returncode})")
+            if current_orchestrator_process.returncode != 0 and current_orchestrator_process.returncode != 1:
+                # Retornos como -15 son típicos de SIGTERM (.terminate())
+                bot.send_message(chat_id, f"⚠️ Ejecución del ViniBot interrumpida. (Código de salida: {current_orchestrator_process.returncode})")
+            else:
+                bot.send_message(chat_id, f"🏁 Ejecución del ViniBot terminada. (Código de salida: {current_orchestrator_process.returncode})")
     except Exception as e:
         if chat_id:
             bot.send_message(chat_id, f"❌ Error crítico al ejecutar ViniBot: {e}")
     finally:
+        current_orchestrator_process = None
         # Liberar lock siempre, incluso si hubo error
         if os.path.exists(LOCK_FILE):
             os.remove(LOCK_FILE)
