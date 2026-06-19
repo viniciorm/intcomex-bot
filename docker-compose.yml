@@ -40,6 +40,7 @@ services:
       - "5678:5678"
     environment:
       - GENERIC_TIMEZONE=America/Santiago
+      - WEBHOOK_URL=https://n8n.tupartnerti.cl/
       - N8N_ENCRYPTION_KEY=vinibot_secret_key_prod
       - N8N_SECURE_COOKIE=false  # Desactiva cookies seguras para permitir acceso por IP pública en HTTP
     volumes:
