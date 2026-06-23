@@ -119,7 +119,37 @@ def generate_daily_snapshot(nuevos_count=0, duration=0):
     save_json(HISTORICO_FILE, historico)
     print(f"✅ Snapshot guardado para {today}.")
     print(f"   Total HH: {round(hh_totales, 2)} | Ganadas Hoy: {round(hh_hoy_ganadas, 2)} | Velocidad: {velocidad}x")
+    
+    # Sanitizar estado para el dashboard
+    sanitize_product_state()
+    
     return snapshot
+
+def sanitize_product_state():
+    print("🔒 Generando catálogo sanitizado para el dashboard...")
+    state = load_json(STATE_FILE)
+    if not state:
+        print("✗ No se pudo cargar el catálogo original para sanitizar.")
+        return
+        
+    sanitized_state = {}
+    for sku, p in state.items():
+        # Copiar solo campos no sensibles
+        sanitized_state[sku] = {
+            "sku": p.get("sku"),
+            "nombre": p.get("nombre"),
+            "sale_price": p.get("sale_price"),
+            "precio_original": p.get("sale_price"),  # Alias para compatibilidad
+            "stock": p.get("stock", 0),
+            "subido_a_woo": p.get("subido_a_woo", False),
+            "ia_mejorado": p.get("ia_mejorado", False),
+            "tiene_imagen": p.get("tiene_imagen", False)
+        }
+        
+    dashboard_file = os.path.join(DATA_PATH, "estado_productos_dashboard.json")
+    save_json(dashboard_file, sanitized_state)
+    print(f"✅ Catálogo sanitizado guardado en {dashboard_file} (sin precios de costo).")
 
 if __name__ == "__main__":
     generate_daily_snapshot()
+

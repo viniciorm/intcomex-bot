@@ -1,0 +1,377 @@
+{
+  "communities": {
+    "0": [
+      "sync_bot",
+      "sync_bot_calculate_sale_price",
+      "sync_bot_clean_price_to_float",
+      "sync_bot_close_banners",
+      "sync_bot_create_product_in_woocommerce",
+      "sync_bot_detect_csv_encoding",
+      "sync_bot_download_category_csv",
+      "sync_bot_enviar_reporte",
+      "sync_bot_escribir_como_humano",
+      "sync_bot_extract_stock_number",
+      "sync_bot_find_product_by_sku",
+      "sync_bot_get_or_create_woo_category",
+      "sync_bot_load_categories",
+      "sync_bot_load_state",
+      "sync_bot_obtener_dolar_web",
+      "sync_bot_rationale_110",
+      "sync_bot_rationale_121",
+      "sync_bot_rationale_131",
+      "sync_bot_rationale_190",
+      "sync_bot_rationale_206",
+      "sync_bot_rationale_234",
+      "sync_bot_rationale_281",
+      "sync_bot_rationale_323",
+      "sync_bot_rationale_350",
+      "sync_bot_rationale_364",
+      "sync_bot_rationale_405",
+      "sync_bot_rationale_435",
+      "sync_bot_rationale_636",
+      "sync_bot_rationale_66",
+      "sync_bot_rationale_679",
+      "sync_bot_rationale_706",
+      "sync_bot_rationale_762",
+      "sync_bot_rationale_855",
+      "sync_bot_rationale_916",
+      "sync_bot_save_state",
+      "sync_bot_sincronizar_csv",
+      "sync_bot_update_product_in_woocommerce",
+      "sync_bot_wait_for_download",
+      "sync_bot_woocommerce_request"
+    ],
+    "1": [
+      "activity_logger",
+      "activity_logger_load_logs",
+      "activity_logger_log_activity",
+      "activity_logger_rationale_24",
+      "activity_logger_save_logs",
+      "exception",
+      "generate_stats",
+      "generate_stats_generate_daily_snapshot",
+      "generate_stats_load_json",
+      "generate_stats_save_json",
+      "main_orchestrator",
+      "main_orchestrator_enviar_alerta_emergencia",
+      "main_orchestrator_enviar_reporte_consolidado",
+      "main_orchestrator_enviar_reporte_telegram",
+      "main_orchestrator_load_state",
+      "main_orchestrator_main",
+      "main_orchestrator_rationale_105",
+      "main_orchestrator_rationale_224",
+      "main_orchestrator_rationale_44",
+      "sync_bot_login_intcomex",
+      "sync_bot_loginexception",
+      "sync_bot_rationale_1064",
+      "sync_bot_rationale_34",
+      "sync_bot_rationale_441",
+      "sync_bot_run_sync_bot"
+    ],
+    "2": [
+      "force_woo_images",
+      "force_woo_images_main",
+      "image_uploader",
+      "image_uploader_load_state",
+      "image_uploader_preload_wc_ids",
+      "image_uploader_rationale_50",
+      "image_uploader_rationale_66",
+      "image_uploader_run_image_uploader",
+      "image_uploader_save_state",
+      "image_uploader_upload_single_image",
+      "woo_batch_manager",
+      "woo_batch_manager_rationale_16",
+      "woo_batch_manager_rationale_24",
+      "woo_batch_manager_rationale_30",
+      "woo_batch_manager_rationale_5",
+      "woo_batch_manager_rationale_61",
+      "woo_batch_manager_woobatchmanager",
+      "woo_batch_manager_woobatchmanager_add_create",
+      "woo_batch_manager_woobatchmanager_add_update",
+      "woo_batch_manager_woobatchmanager_flush",
+      "woo_batch_manager_woobatchmanager_get_product_id_by_sku",
+      "woo_batch_manager_woobatchmanager_init"
+    ],
+    "3": [
+      "telegram_agent",
+      "telegram_agent_ejecutar_orquestador",
+      "telegram_agent_get_allowed_chat_id",
+      "telegram_agent_handle_all_messages",
+      "telegram_agent_job_wrapper",
+      "telegram_agent_rationale_151",
+      "telegram_agent_rationale_194",
+      "telegram_agent_rationale_200",
+      "telegram_agent_rationale_28",
+      "telegram_agent_resume_command",
+      "telegram_agent_run_now_command",
+      "telegram_agent_run_schedule",
+      "telegram_agent_send_status",
+      "telegram_agent_send_welcome",
+      "telegram_agent_stop_command"
+    ],
+    "4": [
+      "image_bot",
+      "image_bot_download_image",
+      "image_bot_harvest_single_sku",
+      "image_bot_load_state",
+      "image_bot_rationale_39",
+      "image_bot_rationale_73",
+      "image_bot_run_image_bot",
+      "image_bot_save_state",
+      "image_bot_setup_driver",
+      "test_image_fix",
+      "test_image_fix_test_fix"
+    ],
+    "5": [
+      "ia_webhook_trigger",
+      "ia_webhook_trigger_load_state",
+      "ia_webhook_trigger_preload_wc_ids",
+      "ia_webhook_trigger_process_ai_enrichment",
+      "ia_webhook_trigger_process_single_ia_request",
+      "ia_webhook_trigger_rationale_51",
+      "ia_webhook_trigger_rationale_71",
+      "ia_webhook_trigger_run_ia_webhook_trigger",
+      "ia_webhook_trigger_save_state"
+    ],
+    "6": [
+      "inventory_cleaner",
+      "inventory_cleaner_get_all_woo_products",
+      "inventory_cleaner_load_state",
+      "inventory_cleaner_rationale_32",
+      "inventory_cleaner_rationale_55",
+      "inventory_cleaner_run_inventory_cleaner",
+      "inventory_cleaner_save_state",
+      "sync_bot_init_woocommerce_api",
+      "sync_bot_rationale_263"
+    ],
+    "7": [
+      "team_manager",
+      "team_manager_assign_task",
+      "team_manager_broadcast",
+      "team_manager_init_team",
+      "team_manager_rationale_20",
+      "team_manager_rationale_42",
+      "team_manager_rationale_49",
+      "team_manager_rationale_8",
+      "team_manager_send_message"
+    ],
+    "8": [
+      "system_health",
+      "system_health_check_intcomex",
+      "system_health_check_n8n",
+      "system_health_check_woo",
+      "system_health_rationale_28",
+      "system_health_rationale_38",
+      "system_health_rationale_46",
+      "system_health_run_health_check"
+    ],
+    "9": [
+      "assign_custom_placeholder",
+      "assign_custom_placeholder_assign_custom_placeholders",
+      "assign_custom_placeholder_get_placeholder_media_id",
+      "assign_custom_placeholder_load_json",
+      "assign_custom_placeholder_rationale_46",
+      "assign_custom_placeholder_save_json"
+    ],
+    "10": [
+      "fix_bad_images",
+      "fix_bad_images_fix_bad_images",
+      "fix_bad_images_get_hash",
+      "fix_bad_images_load_json",
+      "fix_bad_images_save_json"
+    ],
+    "11": [
+      "audit_ia_content",
+      "audit_ia_content_audit_descriptions",
+      "audit_ia_content_looks_like_ai_content",
+      "audit_ia_content_rationale_23"
+    ],
+    "12": [
+      "clean_generic_images",
+      "clean_generic_images_clean_generic_images",
+      "clean_generic_images_load_json",
+      "clean_generic_images_save_json"
+    ],
+    "13": [
+      "cleanup_state",
+      "cleanup_state_cleanup"
+    ],
+    "14": [
+      "compare_states",
+      "compare_states_check"
+    ],
+    "15": [
+      "force_image_sync",
+      "force_image_sync_main"
+    ],
+    "16": [
+      "lock_image_state",
+      "lock_image_state_main"
+    ],
+    "17": [
+      "migrate_ia_state",
+      "migrate_ia_state_migrate"
+    ],
+    "18": [
+      "check_pending"
+    ],
+    "19": [
+      "check_production_state"
+    ],
+    "20": [
+      "repair_state"
+    ],
+    "21": [
+      "repair_state_v2"
+    ],
+    "22": [
+      "test_img"
+    ],
+    "23": [
+      "test_wc_meta"
+    ],
+    "24": [
+      "verify_ai_skus"
+    ]
+  },
+  "cohesion": {
+    "0": 0.06477732793522267,
+    "1": 0.13333333333333333,
+    "2": 0.12987012987012986,
+    "3": 0.13333333333333333,
+    "4": 0.36363636363636365,
+    "5": 0.3333333333333333,
+    "6": 0.3333333333333333,
+    "7": 0.25,
+    "8": 0.35714285714285715,
+    "9": 0.5333333333333333,
+    "10": 0.7,
+    "11": 0.6666666666666666,
+    "12": 0.8333333333333334,
+    "13": 1.0,
+    "14": 1.0,
+    "15": 1.0,
+    "16": 1.0,
+    "17": 1.0,
+    "18": 1.0,
+    "19": 1.0,
+    "20": 1.0,
+    "21": 1.0,
+    "22": 1.0,
+    "23": 1.0,
+    "24": 1.0
+  },
+  "gods": [
+    {
+      "id": "main_orchestrator_main",
+      "label": "main()",
+      "degree": 14
+    },
+    {
+      "id": "woo_batch_manager_woobatchmanager",
+      "label": "WooBatchManager",
+      "degree": 13
+    },
+    {
+      "id": "image_bot_run_image_bot",
+      "label": "run_image_bot()",
+      "degree": 9
+    },
+    {
+      "id": "sync_bot_run_sync_bot",
+      "label": "run_sync_bot()",
+      "degree": 9
+    },
+    {
+      "id": "inventory_cleaner_run_inventory_cleaner",
+      "label": "run_inventory_cleaner()",
+      "degree": 8
+    },
+    {
+      "id": "sync_bot_sincronizar_csv",
+      "label": "sincronizar_csv()",
+      "degree": 8
+    },
+    {
+      "id": "image_uploader_run_image_uploader",
+      "label": "run_image_uploader()",
+      "degree": 7
+    },
+    {
+      "id": "activity_logger_log_activity",
+      "label": "log_activity()",
+      "degree": 6
+    },
+    {
+      "id": "ia_webhook_trigger_process_ai_enrichment",
+      "label": "process_ai_enrichment()",
+      "degree": 6
+    },
+    {
+      "id": "sync_bot_woocommerce_request",
+      "label": "woocommerce_request()",
+      "degree": 6
+    }
+  ],
+  "surprises": [
+    {
+      "source": "main()",
+      "target": "WooBatchManager",
+      "source_files": [
+        "force_woo_images.py",
+        "woo_batch_manager.py"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "connects across different repos/directories; peripheral node `main()` unexpectedly reaches hub `WooBatchManager`"
+    },
+    {
+      "source": "process_ai_enrichment()",
+      "target": "WooBatchManager",
+      "source_files": [
+        "ia_webhook_trigger.py",
+        "woo_batch_manager.py"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "connects across different repos/directories; bridges separate communities"
+    },
+    {
+      "source": "main()",
+      "target": "run_ia_webhook_trigger()",
+      "source_files": [
+        "main_orchestrator.py",
+        "ia_webhook_trigger.py"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "connects across different repos/directories; bridges separate communities"
+    },
+    {
+      "source": "main()",
+      "target": "run_image_bot()",
+      "source_files": [
+        "main_orchestrator.py",
+        "image_bot.py"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "connects across different repos/directories; bridges separate communities"
+    },
+    {
+      "source": "main()",
+      "target": "run_image_uploader()",
+      "source_files": [
+        "main_orchestrator.py",
+        "image_uploader.py"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "connects across different repos/directories; bridges separate communities"
+    }
+  ],
+  "tokens": {
+    "input": 0,
+    "output": 0
+  }
+}

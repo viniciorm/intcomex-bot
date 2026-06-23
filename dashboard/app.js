@@ -2,6 +2,20 @@
 let allStats = [];
 let allProducts = [];
 
+// Helper to escape HTML characters and prevent XSS
+function escapeHTML(str) {
+    if (str === null || str === undefined) return '';
+    return String(str).replace(/[&<>'"]/g, 
+        tag => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            "'": '&#39;',
+            '"': '&quot;'
+        }[tag] || tag)
+    );
+}
+
 // Utility to fetch data with cache busting
 async function fetchData(url) {
     try {
@@ -21,7 +35,13 @@ async function initDashboard() {
         console.error("CORS Error: The dashboard must be served via HTTP (e.g., http://localhost:8000) to load data.");
         const warning = document.createElement('div');
         warning.style = "position: fixed; top: 0; left: 0; width: 100%; background: #ef4444; color: white; text-align: center; padding: 15px; z-index: 9999; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.3);";
-        warning.innerHTML = `⚠️ Error de Seguridad: Abre el dashboard usando <a href="http://localhost:8000/dashboard/index.html" style="color: white; text-decoration: underline;">http://localhost:8000/dashboard/index.html</a>`;
+        warning.textContent = '⚠️ Error de Seguridad: Abre el dashboard usando ';
+        const link = document.createElement('a');
+        link.href = 'http://localhost:8000/dashboard/index.html';
+        link.style.color = 'white';
+        link.style.textDecoration = 'underline';
+        link.textContent = 'http://localhost:8000/dashboard/index.html';
+        warning.appendChild(link);
         document.body.prepend(warning);
         return;
     }
@@ -33,7 +53,7 @@ async function initDashboard() {
 
     // 1. Fetch Data
     allStats = await fetchData('../data_activa/historico_stats.json') || [];
-    const productsObj = await fetchData('../data_activa/estado_productos.json') || {};
+    const productsObj = await fetchData('../data_activa/estado_productos_dashboard.json') || {};
     allProducts = Object.values(productsObj);
     const allActivities = await fetchData('../data_activa/actividades.json') || [];
 
@@ -115,6 +135,21 @@ function initNavigation() {
     if (searchInput) {
         searchInput.addEventListener('input', () => renderProductsTable(searchInput.value));
     }
+
+    // Programmatically attach hover and click listeners to activities card
+    const activitiesCard = document.getElementById('activities-card');
+    if (activitiesCard) {
+        activitiesCard.addEventListener('click', () => {
+            const navLogs = document.getElementById('nav-logs');
+            if (navLogs) navLogs.click();
+        });
+        activitiesCard.addEventListener('mouseover', () => {
+            activitiesCard.style.transform = 'scale(1.02)';
+        });
+        activitiesCard.addEventListener('mouseout', () => {
+            activitiesCard.style.transform = 'scale(1)';
+        });
+    }
 }
 
 function switchView(viewId, navItem) {
@@ -150,19 +185,60 @@ function renderProductsTable(filter = '') {
 
     filtered.forEach(p => {
         const row = document.createElement('tr');
-        row.innerHTML = `
-            <td style="font-weight: 600; color: var(--accent-blue);">${p.sku}</td>
-            <td>${p.nombre.substring(0, 50)}${p.nombre.length > 50 ? '...' : ''}</td>
-            <td>$${p.precio_original || 0}</td>
-            <td><span style="color: ${p.stock > 0 ? '#10b981' : '#ef4444'}">${p.stock}</span></td>
-            <td>
-                <div class="status-badges">
-                    <div class="status-badge ${p.subido_a_woo ? 'active-woo' : ''}" title="WooCommerce"><i class="fas fa-shopping-cart"></i></div>
-                    <div class="status-badge ${p.ia_mejorado ? 'active-ia' : ''}" title="IA Improved"><i class="fas fa-magic"></i></div>
-                    <div class="status-badge ${p.tiene_imagen ? 'active-img' : ''}" title="Has Image"><i class="fas fa-image"></i></div>
-                </div>
-            </td>
-        `;
+        
+        // SKU cell
+        const tdSku = document.createElement('td');
+        tdSku.style.fontWeight = "600";
+        tdSku.style.color = "var(--accent-blue)";
+        tdSku.textContent = p.sku;
+
+        // Name cell
+        const tdName = document.createElement('td');
+        const truncatedName = p.nombre.length > 50 ? p.nombre.substring(0, 50) + '...' : p.nombre;
+        tdName.textContent = truncatedName;
+
+        // Price cell
+        const tdPrice = document.createElement('td');
+        const price = p.sale_price !== undefined ? p.sale_price : (p.precio_original || 0);
+        tdPrice.textContent = `$${price}`;
+
+        // Stock cell
+        const tdStock = document.createElement('td');
+        const stockSpan = document.createElement('span');
+        stockSpan.style.color = p.stock > 0 ? '#10b981' : '#ef4444';
+        stockSpan.textContent = p.stock;
+        tdStock.appendChild(stockSpan);
+
+        // Status badges cell
+        const tdStatus = document.createElement('td');
+        const badgeContainer = document.createElement('div');
+        badgeContainer.className = 'status-badges';
+
+        const createBadge = (isActive, iconClass, title) => {
+            const badge = document.createElement('div');
+            badge.className = `status-badge ${isActive}`;
+            badge.title = title;
+            const icon = document.createElement('i');
+            icon.className = `fas ${iconClass}`;
+            badge.appendChild(icon);
+            return badge;
+        };
+
+        const wooBadge = createBadge(p.subido_a_woo ? 'active-woo' : '', 'fa-shopping-cart', 'WooCommerce');
+        const iaBadge = createBadge(p.ia_mejorado ? 'active-ia' : '', 'fa-magic', 'IA Improved');
+        const imgBadge = createBadge(p.tiene_imagen ? 'active-img' : '', 'fa-image', 'Has Image');
+
+        badgeContainer.appendChild(wooBadge);
+        badgeContainer.appendChild(iaBadge);
+        badgeContainer.appendChild(imgBadge);
+        tdStatus.appendChild(badgeContainer);
+
+        row.appendChild(tdSku);
+        row.appendChild(tdName);
+        row.appendChild(tdPrice);
+        row.appendChild(tdStock);
+        row.appendChild(tdStatus);
+
         tbody.appendChild(row);
     });
 
@@ -230,11 +306,24 @@ function renderAnalyticsCharts() {
     // Summary Boxes
     const summary = document.getElementById('analytics-summary');
     const latest = allStats[allStats.length - 1];
-    summary.innerHTML = `
-        <div class="stat-box"><h4>Eficiencia IA</h4><div class="val" style="color: var(--accent-purple)">${iaData[iaData.length-1]}%</div></div>
-        <div class="stat-box"><h4>Sincronización</h4><div class="val" style="color: var(--accent-blue)">${wooData[wooData.length-1]}%</div></div>
-        <div class="stat-box"><h4>Catálogo</h4><div class="val">${latest.total_productos}</div></div>
-    `;
+    
+    summary.innerHTML = '';
+    const createStatBox = (title, value, color) => {
+        const box = document.createElement('div');
+        box.className = 'stat-box';
+        const h4 = document.createElement('h4');
+        h4.textContent = title;
+        const valDiv = document.createElement('div');
+        valDiv.className = 'val';
+        if (color) valDiv.style.color = color;
+        valDiv.textContent = value;
+        box.appendChild(h4);
+        box.appendChild(valDiv);
+        return box;
+    };
+    summary.appendChild(createStatBox('Eficiencia IA', `${iaData[iaData.length-1]}%`, 'var(--accent-purple)'));
+    summary.appendChild(createStatBox('Sincronización', `${wooData[wooData.length-1]}%`, 'var(--accent-blue)'));
+    summary.appendChild(createStatBox('Catálogo', latest.total_productos));
 }
 
 // --- OVERVIEW HELPERS ---
@@ -293,7 +382,12 @@ function initActivities(activities) {
     list.innerHTML = '';
     
     if (!activities || activities.length === 0) {
-        list.innerHTML = '<div style="color: var(--text-muted); text-align: center; margin-top: 20px;">Sin actividades recientes.</div>';
+        const noActivities = document.createElement('div');
+        noActivities.style.color = 'var(--text-muted)';
+        noActivities.style.textAlign = 'center';
+        noActivities.style.marginTop = '20px';
+        noActivities.textContent = 'Sin actividades recientes.';
+        list.appendChild(noActivities);
         return;
     }
     
@@ -308,32 +402,97 @@ function initActivities(activities) {
         tbody.innerHTML = '';
         activities.forEach(act => {
             const tr = document.createElement('tr');
-            tr.style = "border-bottom: 1px solid rgba(255,255,255,0.05); transition: background 0.2s;";
+            tr.style.borderBottom = "1px solid rgba(255,255,255,0.05)";
+            tr.style.transition = "background 0.2s";
             tr.onmouseover = function() { this.style.backgroundColor = "rgba(255,255,255,0.03)"; };
             tr.onmouseout = function() { this.style.backgroundColor = "transparent"; };
 
             const dateObj = new Date(act.timestamp);
             const timeStr = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString();
-            const iconHtml = act.icon ? `<i class="fas ${act.icon}" style="margin-right:8px; color:var(--accent-blue); width: 16px; text-align: center;"></i>` : '';
             
-            tr.innerHTML = `
-                <td style="padding: 12px; color: var(--text-muted); font-size: 0.85rem;">${timeStr}</td>
-                <td style="padding: 12px; font-weight: 600;"><span class="status-badge" style="background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2);"><i class="fas fa-tag" style="margin-right: 5px;"></i> ${act.categoria || 'Sistema'}</span></td>
-                <td style="padding: 12px; font-size: 0.95rem;">${iconHtml} ${act.message}</td>
-            `;
+            const tdTime = document.createElement('td');
+            tdTime.style.padding = "12px";
+            tdTime.style.color = "var(--text-muted)";
+            tdTime.style.fontSize = "0.85rem";
+            tdTime.textContent = timeStr;
+
+            const tdCategory = document.createElement('td');
+            tdCategory.style.padding = "12px";
+            tdCategory.style.fontWeight = "600";
+            
+            const catBadge = document.createElement('span');
+            catBadge.className = "status-badge";
+            catBadge.style.background = "rgba(255,255,255,0.1)";
+            catBadge.style.borderColor = "rgba(255,255,255,0.2)";
+            
+            const catIcon = document.createElement('i');
+            catIcon.className = "fas fa-tag";
+            catIcon.style.marginRight = "5px";
+            
+            catBadge.appendChild(catIcon);
+            catBadge.appendChild(document.createTextNode(' ' + (act.categoria || 'Sistema')));
+            tdCategory.appendChild(catBadge);
+
+            const tdMessage = document.createElement('td');
+            tdMessage.style.padding = "12px";
+            tdMessage.style.fontSize = "0.95rem";
+            
+            if (act.icon) {
+                const msgIcon = document.createElement('i');
+                const safeIconClass = /^[a-zA-Z0-9- ]+$/.test(act.icon) ? act.icon : 'fa-info-circle';
+                msgIcon.className = `fas ${safeIconClass}`;
+                msgIcon.style.marginRight = "8px";
+                msgIcon.style.color = "var(--accent-blue)";
+                msgIcon.style.width = "16px";
+                msgIcon.style.textAlign = "center";
+                tdMessage.appendChild(msgIcon);
+            }
+            tdMessage.appendChild(document.createTextNode(' ' + act.message));
+
+            tr.appendChild(tdTime);
+            tr.appendChild(tdCategory);
+            tr.appendChild(tdMessage);
             tbody.appendChild(tr);
         });
     }
 }
 
 function renderActivity(container, icon, msg, meta, time) {
-    container.innerHTML += `
-        <div class="activity-item">
-            <div class="activity-icon"><i class="fas ${icon}"></i></div>
-            <div class="activity-details"><p class="activity-msg">${msg}</p><p class="activity-meta">${meta}</p></div>
-            <div class="activity-time">${time}</div>
-        </div>
-    `;
+    const item = document.createElement('div');
+    item.className = 'activity-item';
+
+    const iconDiv = document.createElement('div');
+    iconDiv.className = 'activity-icon';
+    const iconEl = document.createElement('i');
+    const safeIcon = /^[a-zA-Z0-9- ]+$/.test(icon) ? icon : 'fa-info-circle';
+    safeIcon.split(' ').forEach(cls => {
+        if (cls) iconEl.classList.add(cls);
+    });
+    iconDiv.appendChild(iconEl);
+
+    const detailsDiv = document.createElement('div');
+    detailsDiv.className = 'activity-details';
+    
+    const msgP = document.createElement('p');
+    msgP.className = 'activity-msg';
+    msgP.textContent = msg;
+
+    const metaP = document.createElement('p');
+    metaP.className = 'activity-meta';
+    metaP.textContent = meta;
+
+    detailsDiv.appendChild(msgP);
+    detailsDiv.appendChild(metaP);
+
+    const timeDiv = document.createElement('div');
+    timeDiv.className = 'activity-time';
+    timeDiv.textContent = time;
+
+    item.appendChild(iconDiv);
+    item.appendChild(detailsDiv);
+    item.appendChild(timeDiv);
+
+    container.appendChild(item);
 }
 
 document.addEventListener('DOMContentLoaded', initDashboard);
