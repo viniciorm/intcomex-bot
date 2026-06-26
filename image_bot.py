@@ -11,6 +11,13 @@ from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.service import Service as ChromeService
 
 # --- Configuración ---
+try:
+    from credentials import INTCOMEX_USERNAME, INTCOMEX_PASSWORD
+except ImportError:
+    INTCOMEX_USERNAME = None
+    INTCOMEX_PASSWORD = None
+from sync_bot import login_intcomex
+
 DATA_PATH = "data_activa"
 DOWNLOAD_DIR = "downloads"
 IMAGE_DIR = "product_images"
@@ -212,13 +219,21 @@ def run_image_bot(skus_to_process=None, max_workers=10):
                     downloaded_count += 1
                     print(f"    ✅ Imagen OK: {sku} -> {img_url}")
 
-    # Fallback Selenium para SKUs que fallaron (ej: por bloqueo de Cloudflare en VPS)
+    # Fallback Selenium para SKUs que fallaron (ej: por bloqueo de Cloudflare en VPS o porque requieren login)
     failed_skus = [sku for sku in target_skus if sku not in results]
     if failed_skus:
-        print(f"\n    ⚠️ {len(failed_skus)} SKUs fallaron vía rápida. Intentando con Selenium (Modo Seguro)...")
+        print(f"\n    ⚠️ {len(failed_skus)} SKUs fallaron vía rápida. Intentando con Selenium (Modo Seguro con Autenticación)...")
         driver = None
         try:
             driver = setup_driver()
+            if INTCOMEX_USERNAME and INTCOMEX_PASSWORD:
+                print("🔑 Iniciando sesión en Intcomex para acceder a productos protegidos...")
+                try:
+                    login_intcomex(driver, INTCOMEX_USERNAME, INTCOMEX_PASSWORD)
+                    time.sleep(3) # Esperar a que se asiente la sesión
+                    print("    ✅ Sesión iniciada con éxito en Selenium.")
+                except Exception as le:
+                    print(f"    ⚠️ Error de inicio de sesión en Selenium: {le}. Continuando sin autenticación...")
             for sku in failed_skus:
                 search_url = SEARCH_URL_TEMPLATE.format(sku=sku)
                 try:
