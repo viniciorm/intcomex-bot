@@ -324,7 +324,9 @@ def main():
         # Basado en estado: buscamos qué productos en el JSON no tienen imagen
         if mode in ['all', 'images']:
             state = load_state()
-            skus_sin_imagen = [sku for sku, data in state.items() if not data.get("tiene_imagen") and data.get("stock", 0) > 0]
+            skus_sin_imagen = [sku for sku, data in state.items() 
+                               if (not data.get("tiene_imagen") or data.get("placeholder_personalizado")) 
+                               and data.get("stock", 0) > 0]
             
             if skus_sin_imagen:
                 print(f"\n[FASE B] Iniciando Deep Scan para {len(skus_sin_imagen)} SKUs...")

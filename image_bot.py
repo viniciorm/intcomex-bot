@@ -69,32 +69,113 @@ def setup_driver():
     service = ChromeService(ChromeDriverManager().install())
     return webdriver.Chrome(service=service, options=options)
 
+def extract_image_from_html(html, sku, current_url=""):
+    """
+    Extrae la URL de la imagen principal desde el HTML de la página de detalle
+    o sigue el enlace de detalle si estamos en la página de resultados.
+    """
+    import re
+    
+    # 1. Comprobar si ya estamos en la página de detalle
+    # Si la URL contiene /Product/Detail/ o si el html tiene la clase mainImageDiv
+    is_detail = "/Product/Detail/" in current_url or "mainImageDiv" in html
+    
+    if is_detail:
+        return parse_detail_page_image(html, sku)
+        
+    # 2. Si es página de resultados, buscar el enlace del detalle
+    patterns = [
+        r'<a[^>]+data-sku\s*=\s*[\'"]' + re.escape(sku) + r'[\'"][^>]*href\s*=\s*[\'"]([^\'"]+)[\'"]',
+        r'<a[^>]+href\s*=\s*[\'"]([^\'"]+)[\'"][^>]*data-sku\s*=\s*[\'"]' + re.escape(sku) + r'[\'"]'
+    ]
+    
+    detail_path = None
+    for pattern in patterns:
+        match = re.search(pattern, html, re.IGNORECASE)
+        if match:
+            detail_path = match.group(1)
+            break
+            
+    if detail_path:
+        detail_url = detail_path if detail_path.startswith("http") else f"https://store.intcomex.com{detail_path}"
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+        try:
+            resp = requests.get(detail_url, headers=headers, timeout=10)
+            if resp.status_code == 200:
+                return parse_detail_page_image(resp.text, sku)
+        except Exception as e:
+            print(f"      [!] Error al obtener página de detalle {detail_url}: {e}")
+            
+    return None
+
+def parse_detail_page_image(html, sku):
+    """Analiza la página de detalle y obtiene el src de la imagen principal."""
+    import re
+    
+    # Intento 1: Imagen dentro de mainImageDiv (soporta clase separada por espacios 'text center')
+    match = re.search(
+        r'class\s*=\s*[\'"][^\'"]*mainImageDiv[^\'"]*[\'"][^>]*>.*?<img[^>]+(?:src|data-src|data-original|data-lazy)\s*=\s*[\'"]([^\'"]+)[\'"]',
+        html, re.IGNORECASE | re.DOTALL
+    )
+    if match:
+        img_src = match.group(1)
+        if "noimage" not in img_src.lower():
+            return img_src
+            
+    # Intento 2: Imagen con clase img-products
+    match = re.search(
+        r'<img[^>]+class\s*=\s*[\'"][^\'"]*img-products[^\'"]*[\'"][^>]+(?:src|data-src|data-original|data-lazy)\s*=\s*[\'"]([^\'"]+)[\'"]',
+        html, re.IGNORECASE
+    )
+    if match:
+        img_src = match.group(1)
+        if "noimage" not in img_src.lower():
+            return img_src
+            
+    # Intento 3: Cualquier imagen con ruta /images/products/
+    match = re.search(
+        r'<img[^>]+(?:src|data-src|data-original|data-lazy)\s*=\s*[\'"]([^\'"]*?/images/products/[^\'"]+)[\'"]',
+        html, re.IGNORECASE
+    )
+    if match:
+        img_src = match.group(1)
+        if "noimage" not in img_src.lower():
+            return img_src
+            
+    # Intento 4: Si no hay nada, buscar cualquier imagen que contenga el SKU y termine en jpg/png
+    match = re.search(
+        r'(?:src|data-src|data-original|data-lazy)\s*=\s*[\'"]([^\'"]*?' + re.escape(sku) + r'[^\'"]*?\.(?:jpg|jpeg|png|gif|webp))[\'"]',
+        html, re.IGNORECASE
+    )
+    if match:
+        return match.group(1)
+        
+    return None
+
 def harvest_single_sku(sku, state_entry):
     """
-    Intenta obtener la imagen de un SKU usando una instancia de driver (o pronto usando requests).
-    Para VINI-TURBO usaremos Selenium solo si es estrictamente necesario, 
-    pero por ahora lo haremos paralelo creando drivers efímeros o reusando.
+    Intenta obtener la imagen de un SKU usando una petición rápida requests.
+    Sigue el flujo búsqueda -> detalle -> extracción de imagen.
     """
-    # En esta versión optimizada, crearemos un pool de drivers o usaremos requests.
-    # Usemos requests + BeautifulSoup por velocidad si es posible.
-    headers = {"User-Agent": "Mozilla/5.0"}
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
     search_url = SEARCH_URL_TEMPLATE.format(sku=sku)
     
     try:
-        # Intento 1: Requests (Mucho más rápido)
         resp = requests.get(search_url, headers=headers, timeout=10)
         if resp.status_code == 200:
-            if sku in resp.text:
-                # Extraer URL simple si existe en el HTML (patrón común)
-                import re
-                images = re.findall(r'https?://[^\s<>"]+?/[^\s<>"]+?\.[jJ][pP][gG]', resp.text)
-                for img in images:
-                    if sku in img and ("intcomex" in img or "1worldsync" in img):
-                        return sku, img
-        
-        # Intento 2: Si falla requests, reportamos para que el orquestador sepa (o use Selenium post-paralelo)
+            img_url = extract_image_from_html(resp.text, sku, resp.url)
+            if img_url:
+                # Resolver URL relativa
+                if img_url.startswith("/"):
+                    img_url = f"https://store.intcomex.com{img_url}"
+                return sku, img_url
         return sku, None
-    except:
+    except Exception as e:
+        print(f"      [!] Error requests para {sku}: {e}")
         return sku, None
 
 def run_image_bot(skus_to_process=None, max_workers=10):
@@ -106,7 +187,10 @@ def run_image_bot(skus_to_process=None, max_workers=10):
     if skus_to_process:
         target_skus = [sku for sku in state.keys() if sku in skus_to_process]
     else:
-        target_skus = [sku for sku, data in state.items() if not data.get("tiene_imagen") and data.get("stock", 0) > 0]
+        # Procesar SKUs que no tienen imagen o tienen placeholder personalizado
+        target_skus = [sku for sku, data in state.items() 
+                       if (not data.get("tiene_imagen") or data.get("placeholder_personalizado")) 
+                       and data.get("stock", 0) > 0]
 
     if not target_skus:
         print("✅ No hay SKUs pendientes de imagen.")
@@ -126,7 +210,7 @@ def run_image_bot(skus_to_process=None, max_workers=10):
                 if local_path:
                     results[sku] = local_path
                     downloaded_count += 1
-                    print(f"    ✅ Imagen OK: {sku}")
+                    print(f"    ✅ Imagen OK: {sku} -> {img_url}")
 
     # Fallback Selenium para SKUs que fallaron (ej: por bloqueo de Cloudflare en VPS)
     failed_skus = [sku for sku in target_skus if sku not in results]
@@ -139,25 +223,34 @@ def run_image_bot(skus_to_process=None, max_workers=10):
                 search_url = SEARCH_URL_TEMPLATE.format(sku=sku)
                 try:
                     driver.get(search_url)
-                    import re
-                    # Buscar URLs de imágenes en el código fuente renderizado
-                    images = re.findall(r'https?://[^\s<>"]+?/[^\s<>"]+?\.[jJ][pP][gG]', driver.page_source)
-                    img_url = None
-                    for img in images:
-                        if sku in img and ("intcomex" in img or "1worldsync" in img):
-                            img_url = img
-                            break
+                    time.sleep(3)
                     
-                    if img_url:
+                    img_url = extract_image_from_html(driver.page_source, sku, driver.current_url)
+                    
+                    # Intentos de selector directo en driver si falla el parser HTML
+                    if not img_url:
+                        try:
+                            el = driver.find_element(By.CSS_SELECTOR, ".mainImageDiv img")
+                            img_url = el.get_attribute("src")
+                        except:
+                            try:
+                                el = driver.find_element(By.CSS_SELECTOR, "img.img-products")
+                                img_url = el.get_attribute("src")
+                            except:
+                                pass
+                                
+                    if img_url and "noimage" not in img_url.lower():
+                        if img_url.startswith("/"):
+                            img_url = f"https://store.intcomex.com{img_url}"
                         local_path = download_image(img_url, sku)
                         if local_path:
                             results[sku] = local_path
                             downloaded_count += 1
-                            print(f"    ✅ Imagen OK (Selenium): {sku}")
+                            print(f"    ✅ Imagen OK (Selenium): {sku} -> {img_url}")
                         else:
                             print(f"    ❌ Error al guardar imagen: {sku}")
                     else:
-                        print(f"    ❌ Imagen no encontrada en portal: {sku}")
+                        print(f"    ❌ Imagen no encontrada en portal (Selenium): {sku}")
                 except Exception as e:
                     print(f"    ❌ Error de Selenium para {sku}: {str(e)[:50]}")
         except Exception as e:
@@ -172,6 +265,7 @@ def run_image_bot(skus_to_process=None, max_workers=10):
             state[sku].update({
                 "tiene_imagen": True,
                 "imagenes_locales": [path],
+                "placeholder_personalizado": False,  # Resetear flag de placeholder
                 "subido_a_woo": False,
                 "pendiente_sync_woo": True,
                 "last_updated": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
