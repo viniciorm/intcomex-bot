@@ -524,6 +524,8 @@ def login_intcomex(driver, username, password):
         time.sleep(5)
         
         # Ciclo para detectar 2FA o éxito de login (hasta 90 segundos de espera total)
+        attempts_2fa = 0
+        max_attempts_2fa = 3  # Limitar a máximo 3 solicitudes de código 2FA
         for check_attempt in range(30):
             current_url = driver.current_url.lower()
             
@@ -536,19 +538,24 @@ def login_intcomex(driver, username, password):
                 # Buscar si existe el div del Phonefactor o Autenticación multifactor
                 page_src = driver.page_source.lower()
                 if "phonefactor" in page_src or "autenticación de seguridad" in page_src or "autenticación multifactor" in page_src:
-                    print("\n⚠️ Se detectó Autenticación de Seguridad (2FA SMS) de Intcomex.")
+                    attempts_2fa += 1
+                    if attempts_2fa > max_attempts_2fa:
+                        print("⏳ Se superó el número máximo de intentos de 2FA. Cancelando login.")
+                        return False
+                        
+                    print(f"\n⚠️ Se detectó Autenticación de Seguridad (2FA SMS) de Intcomex (Intento {attempts_2fa} de {max_attempts_2fa}).")
                     
-                    # Intentar hacer clic en el botón "Enviar Código" si está presente
+                    # Intentar hacer clic en el botón "Enviar Código" o "Reenviar código" si está presente
                     try:
-                        # En Azure AD B2C, suele ser un botón con id 'sendCode' o 'continue'
-                        botones_enviar = driver.find_elements(By.XPATH, "//button[@id='sendCode'] | //button[@id='continue'] | //button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÓÚ', 'abcdefghijklmnopqrstuvwxyzáéíóú'), 'enviar')]")
+                        # Buscamos botones de enviar (sendCode) o reenviar (retryCode / reenviar)
+                        botones_enviar = driver.find_elements(By.XPATH, "//button[@id='sendCode'] | //a[@id='retryCode'] | //button[@id='retryCode'] | //button[@id='continue'] | //button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÓÚ', 'abcdefghijklmnopqrstuvwxyzáéíóú'), 'enviar')] | //a[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÓÚ', 'abcdefghijklmnopqrstuvwxyzáéíóú'), 'reenviar')]")
                         btn_enviar = next((b for b in botones_enviar if b.is_displayed()), None)
                         if btn_enviar:
-                            print("🖱️ Haciendo clic en 'Enviar Código'...")
+                            print(f"🖱️ Haciendo clic en botón de envío/reenvío ({btn_enviar.text or btn_enviar.get_attribute('id')})...")
                             driver.execute_script("arguments[0].click();", btn_enviar)
                             time.sleep(3)
                     except Exception as e:
-                        print(f"Nota: No se pudo clickear automáticamente en 'Enviar Código' ({e}). Hazlo manual si es necesario.")
+                        print(f"Nota: No se pudo clickear automáticamente en 'Enviar/Reenviar Código' ({e}). Hazlo manual si es necesario.")
                         
                     print("\n" + "="*50)
                     print("Por favor revisa tu teléfono. El agente de Telegram está en espera.")
@@ -570,8 +577,8 @@ def login_intcomex(driver, username, password):
                         os.remove(pending_file)
                         
                     codigo_sms = None
-                    print("⌛ Esperando código SMS vía Telegram (Timeout: 120 segs)...")
-                    for wait_sms in range(120):
+                    print("⌛ Esperando código SMS vía Telegram (Timeout: 360 segs)...")
+                    for wait_sms in range(360):
                         if os.path.exists(pending_file):
                             try:
                                 with open(pending_file, "r") as f:

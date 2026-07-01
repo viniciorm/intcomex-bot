@@ -275,6 +275,26 @@ def enviar_reporte_telegram(resumen, error_critico=None):
     except Exception as e:
         print(f"❌ Falló envío de reporte por Telegram: {e}")
 
+def was_fase_a_completed():
+    """
+    Determina si la Fase A (Sincronización) se completó con éxito en el último ciclo de ejecución.
+    """
+    try:
+        log_file = "./data_activa/actividades.json"
+        if not os.path.exists(log_file):
+            return False
+        with open(log_file, "r", encoding="utf-8") as f:
+            logs = json.load(f)
+        for log in logs:
+            message = log.get("message", "")
+            if "Orquestador iniciado" in message:
+                return False
+            if "Fase A Completada" in message:
+                return True
+        return False
+    except:
+        return False
+
 def main():
     # Detectar modo de ejecución por argumentos
     # python main_orchestrator.py [all|sync|images|upload|clean|ia|local|resume]
@@ -282,6 +302,11 @@ def main():
     if len(sys.argv) > 1:
         # Normalizar modo (quitar guiones si el usuario puso -all o --all)
         mode = sys.argv[1].lower().lstrip("-")
+
+    if mode == "resume":
+        if not was_fase_a_completed():
+            print("ℹ️ Detectado modo RESUME pero la Fase A (Sincronización) no se completó en la última ejecución. Cambiando a modo ALL.")
+            mode = "all"
 
     print("="*60)
     
