@@ -96,7 +96,7 @@ def run_image_uploader(max_workers=5):
     
     if not skus_to_sync:
         print("[OK] Todo sincronizado.")
-        return 0
+        return {"sincronizados": 0, "imagenes_subidas": 0}
 
     # 1. Pre-cargar IDs
     preload_wc_ids(skus_to_sync)
@@ -194,8 +194,11 @@ def run_image_uploader(max_workers=5):
 
     save_state(state)
     
-    print(f"✅ Uploader finalizado: {success_count} productos actualizados.")
-    return success_count
+    print(f"✅ Uploader finalizado: {success_count} productos actualizados. {len(media_results)} imágenes subidas.")
+    return {
+        "sincronizados": success_count,
+        "imagenes_subidas": len(media_results)
+    }
 
 if __name__ == "__main__":
     run_image_uploader()

@@ -166,9 +166,10 @@ def enviar_reporte_consolidado(resumen, error_critico=None):
         up = resumen.get("uploader", {})
         cuerpo_html += f"""
             <div class='stat-box'>
-                <h3>Fase C: Vinculación WooCommerce</h3>
+                <h3>Fase C: Sincronización WooCommerce</h3>
                 <ul>
-                    <li>Imágenes vinculadas: {up.get('vinculadas', 0)}</li>
+                    <li>Imágenes Nuevas Subidas: {up.get('imagenes_subidas', 0)}</li>
+                    <li>Productos Sincronizados: {up.get('sincronizados', 0)}</li>
                 </ul>
             </div>
         """
@@ -247,8 +248,9 @@ def enviar_reporte_telegram(resumen, error_critico=None):
         texto += f"Descargadas: {imgs.get('descargadas', 0)}\n\n"
         
         up = resumen.get("uploader", {})
-        texto += "☁️ *FASE C: Vinculación WooCommerce*\n"
-        texto += f"Vinculadas: {up.get('vinculadas', 0)}\n\n"
+        texto += "☁️ *FASE C: Sincronización WooCommerce*\n"
+        texto += f"Imágenes Nuevas Subidas: {up.get('imagenes_subidas', 0)}\n"
+        texto += f"Productos Sincronizados: {up.get('sincronizados', 0)}\n\n"
         
         cl = resumen.get("cleaner", {})
         texto += "🧹 *FASE D: Limpieza de Inventario*\n"
@@ -315,7 +317,7 @@ def main():
     resumen = {
         "sync": {"status": "SKIPPED", "stats": {}},
         "imagenes": {"descargadas": 0},
-        "uploader": {"vinculadas": 0},
+        "uploader": {"sincronizados": 0, "imagenes_subidas": 0},
         "cleaner": {"reactivados": 0, "stock_bajo": 0, "fuera_catalogo": 0},
         "ia": {"enviados": 0}
     }
@@ -376,9 +378,10 @@ def main():
             if pending_upload:
                 print(f"\n[FASE C] Iniciando Sincronización de {len(pending_upload)} productos...")
                 log_activity(f"Iniciando Fase C: Subida a Woo (Batch) de {len(pending_upload)} productos/imgs", "WooCommerce", "fa-cloud-upload-alt")
-                procesados = run_image_uploader()
-                resumen["uploader"]["vinculadas"] = procesados
-                log_activity(f"Fase C Completada. Vinculadas/Actualizadas: {procesados}", "WooCommerce", "fa-link")
+                uploader_stats = run_image_uploader()
+                resumen["uploader"]["sincronizados"] = uploader_stats.get("sincronizados", 0)
+                resumen["uploader"]["imagenes_subidas"] = uploader_stats.get("imagenes_subidas", 0)
+                log_activity(f"Fase C Completada. Sincronizados: {uploader_stats.get('sincronizados', 0)}, Imgs Subidas: {uploader_stats.get('imagenes_subidas', 0)}", "WooCommerce", "fa-link")
             else:
                 print("\n[FASE C] No hay datos ni imágenes pendientes de sincronizar. Saltando.")
 

@@ -24,7 +24,15 @@
         "Vigilancia_DVR": "https://store.intcomex.com/es-XCL/Products/ByCategory/vis.dvr?r=True",
         "Vigilancia_Kits": "https://store.intcomex.com/es-XCL/Products/ByCategory/vis.kit?r=True",
         "Vigilancia_Cámaras_IP": "https://store.intcomex.com/es-XCL/Products/ByCategory/vis.netcam?r=True",
-        "Vigilancia_NVR": "https://store.intcomex.com/es-XCL/Products/ByCategory/vis.nvr?r=True"
+        "Vigilancia_NVR": "https://store.intcomex.com/es-XCL/Products/ByCategory/vis.nvr?r=True",
+        "Placas_Madre": "https://store.intcomex.com/es-XCL/Products/ByCategory/cco.mobo?r=True",
+        "Gabinetes": "https://store.intcomex.com/es-XCL/Products/ByCategory/cco.case?r=True",
+        "Sistemas_Audio": "https://store.intcomex.com/es-XCL/Products/ByCategory/avs.system?r=True",
+        "Tarjetas_Video": "https://store.intcomex.com/es-XCL/Products/ByCategory/cco.graphic?r=True",
+        "UPS": "https://store.intcomex.com/es-XCL/Products/ByCategory/ups.ups?r=True",
+        "Parlantes": "https://store.intcomex.com/es-XCL/Products/ByCategory/avs.speaker?r=True",
+        "Access_Points": "https://store.intcomex.com/es-XCL/Products/ByCategory/net.accpoint?r=True",
+        "Antenas_Red": "https://store.intcomex.com/es-XCL/Products/ByCategory/net.antenna?r=True"
     },
 
 
@@ -53,8 +61,14 @@
         "Vigilancia_DVR": ["DVR", "Grabador", "Vigilancia", "Video"],
         "Vigilancia_Kits": ["Kit", "Vigilancia", "Seguridad", "Cámaras"],
         "Vigilancia_Cámaras_IP": ["Cámara IP", "Red", "IP Cam", "Vigilancia", "Netcam"],
-        "Vigilancia_NVR": ["NVR", "Grabador de Red", "Vigilancia", "IP"]
+        "Vigilancia_NVR": ["NVR", "Grabador de Red", "Vigilancia", "IP"],
+        "Placas_Madre": ["Placa Madre", "Motherboard", "Placa Base", "Mainboard", "MB"],
+        "Gabinetes": ["Gabinete", "Case", "Chasis", "Tower", "Torre"],
+        "Sistemas_Audio": ["Audio", "Sistema de Audio", "Soundbar", "Barra de Sonido", "Equipo de Música"],
+        "Tarjetas_Video": ["Tarjeta de Video", "Tarjeta Gráfica", "GPU", "Graphics Card", "GeForce", "Radeon"],
+        "UPS": ["UPS", "Respaldo de Energía", "No Break", "APC", "Batería"],
+        "Parlantes": ["Parlante", "Speaker", "Altavoz", "Bluetooth", "Bocina"],
+        "Access_Points": ["Access Point", "Punto de Acceso", "AP", "Wireless", "Wi-Fi"],
+        "Antenas_Red": ["Antena", "Antenna", "Wi-Fi", "Inalámbrico", "Wireless"]
     }
-
-
 }
