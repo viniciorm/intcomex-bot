@@ -21,4 +21,8 @@ jobs:
             git fetch origin
             git reset --hard origin/main
             docker compose up -d --build
-            docker compose exec -T dashboard-ui nginx -s reload || docker compose restart dashboard-ui
+            docker compose restart dashboard-ui
+            sleep 3
+            echo "=== Verifying .htpasswd on VPS ==="
+            cat /root/tupartnerti/dashboard/nginx/.htpasswd
+            docker compose exec -T dashboard-ui cat /etc/nginx/.htpasswd
