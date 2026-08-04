@@ -21,3 +21,4 @@ jobs:
             git fetch origin
             git reset --hard origin/main
             docker compose up -d --build
+            docker compose exec -T dashboard-ui nginx -s reload || docker compose restart dashboard-ui
