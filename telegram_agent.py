@@ -176,9 +176,17 @@ def stop_command(message):
                 except: pass
             bot.reply_to(message, "⚠️ No hay ninguna ejecución del orquestador activa en este momento. Sistema limpio.")
 
+_last_processed_message_id = None
+
 @bot.message_handler(func=lambda message: True)
 def handle_all_messages(message):
+    global _last_processed_message_id
     if allowed_chat_id and message.chat.id == allowed_chat_id:
+        # Evitar responder dos veces al mismo mensaje en caso de reintentos de red de Telegram
+        if _last_processed_message_id == message.message_id:
+            return
+        _last_processed_message_id = message.message_id
+        
         texto = message.text.strip()
         # Si comprobamos que es un código numérico (2FA) o si el usuario escribe explícitamente algo
         if texto.isdigit():
