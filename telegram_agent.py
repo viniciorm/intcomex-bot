@@ -33,6 +33,21 @@ def get_allowed_chat_id():
 
 allowed_chat_id = get_allowed_chat_id()
 
+def setup_bot_menu():
+    """Registra los comandos en el menú desplegable nativo de la app de Telegram"""
+    try:
+        commands = [
+            telebot.types.BotCommand("stop", "🛑 Detener el proceso inmediatamente"),
+            telebot.types.BotCommand("resume", "⏯️ Reanudar ejecución pendiente"),
+            telebot.types.BotCommand("run_now", "🚀 Iniciar ejecución completa"),
+            telebot.types.BotCommand("status", "📊 Ver estado del bot y servidor"),
+            telebot.types.BotCommand("help", "ℹ️ Ver ayuda y comandos")
+        ]
+        bot.set_my_commands(commands)
+        print("✅ Menú de comandos registrado exitosamente en Telegram.")
+    except Exception as e:
+        print(f"⚠️ No se pudo registrar el menú de comandos en Telegram: {e}")
+
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
     chat_id = message.chat.id
@@ -42,7 +57,7 @@ def send_welcome(message):
     elif chat_id != allowed_chat_id:
         bot.reply_to(message, "⛔ No estás autorizado para usar este bot.")
     else:
-        bot.reply_to(message, "🤖 ViniBot Agent activo y escuchando.\nComandos disponibles:\n/run_now - Ejecuta el orquestador inmediatamente\n/resume - Reanuda la ejecución desde el último punto\n/stop - Detiene la ejecución actual si hay una en curso\n/status - Verifica si el bot está programado y activo")
+        bot.reply_to(message, "🤖 ViniBot Agent activo y escuchando.\n\nComandos disponibles en el menú:\n🛑 /stop - Detiene inmediatamente la ejecución en curso\n⏯️ /resume - Reanuda la ejecución desde el último punto\n🚀 /run_now - Ejecuta el orquestador inmediatamente\n📊 /status - Verifica el estado del bot y del servidor\nℹ️ /help - Muestra este mensaje")
 
 @bot.message_handler(commands=['status'])
 def send_status(message):
@@ -122,14 +137,44 @@ def stop_command(message):
     global current_orchestrator_process
     if allowed_chat_id and message.chat.id == allowed_chat_id:
         if current_orchestrator_process and current_orchestrator_process.poll() is None:
-            bot.reply_to(message, "🛑 Deteniendo el orquestador de manera forzada...")
+            bot.reply_to(message, "🛑 Deteniendo el orquestador y cerrando procesos...")
             try:
-                current_orchestrator_process.terminate()
-                bot.reply_to(message, "✅ Proceso detenido exitosamente. Usa /resume o /run_now para volver a iniciar.")
+                pid = current_orchestrator_process.pid
+                # Terminar árbol de procesos
+                try:
+                    import psutil
+                    parent = psutil.Process(pid)
+                    for child in parent.children(recursive=True):
+                        try:
+                            child.kill()
+                        except: pass
+                    parent.kill()
+                except Exception:
+                    # Fallback si no está psutil
+                    if os.name == 'nt':
+                        subprocess.call(['taskkill', '/F', '/T', '/PID', str(pid)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    else:
+                        subprocess.call(['pkill', '-P', str(pid)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    try:
+                        current_orchestrator_process.kill()
+                    except:
+                        current_orchestrator_process.terminate()
+                
+                # Limpiar archivos de bloqueo y 2FA pendientes
+                for temp_f in [LOCK_FILE, "data_activa/pending_2fa.txt"]:
+                    if os.path.exists(temp_f):
+                        try: os.remove(temp_f)
+                        except: pass
+                        
+                bot.reply_to(message, "✅ Proceso detenido exitosamente. Los bloqueos han sido liberados. Usa /resume o /run_now para volver a iniciar cuando quieras.")
             except Exception as e:
                 bot.reply_to(message, f"⚠️ Hubo un error al intentar detener el proceso: {e}")
         else:
-            bot.reply_to(message, "⚠️ No hay ninguna ejecución del orquestador activa en este momento.")
+            # Limpiar archivo lock residual si quedó colgado
+            if os.path.exists(LOCK_FILE):
+                try: os.remove(LOCK_FILE)
+                except: pass
+            bot.reply_to(message, "⚠️ No hay ninguna ejecución del orquestador activa en este momento. Sistema limpio.")
 
 @bot.message_handler(func=lambda message: True)
 def handle_all_messages(message):
@@ -142,7 +187,7 @@ def handle_all_messages(message):
                 f.write(texto)
             bot.reply_to(message, f"👍 Código {texto} recibido localmente. El navegador lo insertará si lo está solicitando.")
         else:
-            bot.reply_to(message, "No te entendí. Si necesitas ingresar el código SMS, simplemente envíame el número.\nUsa /help para ver los comandos.")
+            bot.reply_to(message, "No te entendí. Si necesitas ingresar el código SMS, simplemente envíame el número.\nUsa el menú de comandos o /help para ver las opciones disponibles.")
 
 LOCK_FILE = "data_activa/orchestrator.lock"
 _orchestrator_running = threading.Lock()
@@ -223,6 +268,9 @@ def job_wrapper(expected_hour):
 
 if __name__ == '__main__':
     print("🤖 Iniciando Agente de Telegram ViniBot...")
+    
+    # Configurar el menú nativo de comandos en Telegram
+    setup_bot_menu()
     
     # Programar las ejecuciones asegurando la zona horaria de Chile sin importar dónde esté el PC físicamente
     schedule.every().day.at("08:00", "America/Santiago").do(job_wrapper, "08:00")

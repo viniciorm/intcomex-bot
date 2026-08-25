@@ -523,9 +523,9 @@ def login_intcomex(driver, username, password):
         print("🔍 Validando acceso...")
         time.sleep(5)
         
-        # Ciclo para detectar 2FA o éxito de login (hasta 90 segundos de espera total)
+        # Ciclo para detectar 2FA o éxito de login
         attempts_2fa = 0
-        max_attempts_2fa = 3  # Limitar a máximo 3 solicitudes de código 2FA
+        max_attempts_2fa = 4  # Limitar a máximo 4 solicitudes de código 2FA (5 min cada una)
         for check_attempt in range(30):
             current_url = driver.current_url.lower()
             
@@ -540,7 +540,15 @@ def login_intcomex(driver, username, password):
                 if "phonefactor" in page_src or "autenticación de seguridad" in page_src or "autenticación multifactor" in page_src:
                     attempts_2fa += 1
                     if attempts_2fa > max_attempts_2fa:
-                        print("⏳ Se superó el número máximo de intentos de 2FA. Cancelando login.")
+                        print(f"⏳ Se superó el número máximo de {max_attempts_2fa} intentos de 2FA. Cancelando login.")
+                        try:
+                            from credentials import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+                            if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID:
+                                requests.post(f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage", data={
+                                    "chat_id": TELEGRAM_CHAT_ID,
+                                    "text": f"🛑 Se completaron los {max_attempts_2fa} intentos de espera de código SMS (5 min c/u) sin recibir código. Proceso de login cancelado por seguridad.\nPuedes retomarlo cuando desees con /resume."
+                                }, timeout=5)
+                        except: pass
                         return False
                         
                     print(f"\n⚠️ Se detectó Autenticación de Seguridad (2FA SMS) de Intcomex (Intento {attempts_2fa} de {max_attempts_2fa}).")
@@ -558,7 +566,7 @@ def login_intcomex(driver, username, password):
                         print(f"Nota: No se pudo clickear automáticamente en 'Enviar/Reenviar Código' ({e}). Hazlo manual si es necesario.")
                         
                     print("\n" + "="*50)
-                    print("Por favor revisa tu teléfono. El agente de Telegram está en espera.")
+                    print(f"Por favor revisa tu teléfono. El agente de Telegram está en espera (Intento {attempts_2fa}/{max_attempts_2fa}).")
                     
                     # Alertar a Telegram
                     import requests
@@ -567,7 +575,7 @@ def login_intcomex(driver, username, password):
                         if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID:
                             requests.post(f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage", data={
                                 "chat_id": TELEGRAM_CHAT_ID,
-                                "text": "⚠️ Intcomex solicita código de seguridad SMS (2FA).\nPor favor, ingresa los números aquí para inyectarlos en el navegador."
+                                "text": f"⚠️ Intcomex solicita código de seguridad SMS (2FA) [Intento {attempts_2fa} de {max_attempts_2fa}].\n⏳ Tienes 5 minutos para ingresar el código numérico aquí para inyectarlo en el navegador."
                             }, timeout=5)
                     except: pass
                     
@@ -577,8 +585,8 @@ def login_intcomex(driver, username, password):
                         os.remove(pending_file)
                         
                     codigo_sms = None
-                    print("⌛ Esperando código SMS vía Telegram (Timeout: 360 segs)...")
-                    for wait_sms in range(360):
+                    print("⌛ Esperando código SMS vía Telegram (Timeout: 300 segs - 5 min)...")
+                    for wait_sms in range(300):
                         if os.path.exists(pending_file):
                             try:
                                 with open(pending_file, "r") as f:
@@ -586,10 +594,31 @@ def login_intcomex(driver, username, password):
                                 os.remove(pending_file)
                             except: pass
                         if codigo_sms: break
+                        
+                        # Comprobar periódicamente si en la página web apareció un aviso de error / expiración de código
+                        if wait_sms > 0 and wait_sms % 30 == 0:
+                            try:
+                                current_page_text = driver.page_source.lower()
+                                if "expirado" in current_page_text or "caducado" in current_page_text or "tiempo agotado" in current_page_text:
+                                    print("⚠️ La página web indica que el código actual ha expirado. Procediendo al siguiente reenvío...")
+                                    break
+                            except: pass
+                            
                         time.sleep(1)
                         
                     if not codigo_sms:
-                        print("⏳ Tiempo agotado esperando código SMS.")
+                        print(f"⏳ Tiempo de 5 minutos agotado para el intento {attempts_2fa} de {max_attempts_2fa}.")
+                        if attempts_2fa >= max_attempts_2fa:
+                            print(f"🛑 Se alcanzó el límite máximo de {max_attempts_2fa} intentos. Cancelando login.")
+                            try:
+                                from credentials import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+                                if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID:
+                                    requests.post(f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage", data={
+                                        "chat_id": TELEGRAM_CHAT_ID,
+                                        "text": f"🛑 Se completaron los {max_attempts_2fa} intentos de espera de código SMS (5 min c/u) sin recibir código. Proceso detenido.\nPuedes retomarlo cuando desees con /resume."
+                                    }, timeout=5)
+                            except: pass
+                            return False
                         continue
                         
                     print(f"✅ Código interceptado. Ingresando...")
@@ -1132,24 +1161,13 @@ def run_sync_bot(driver=None, skip_download=False):
                     print(f"  ⚠ CSV local no encontrado para: {cat_name}")
         else:
             # FASE 1: DESCARGAS
-            print("\nPASO 1.1: INICIO DE SESIÓN (REINTENTOS ACTIVADOS)")
-            login_success = False
-            max_intentos = 3
-            for intento in range(1, max_intentos + 1):
-                print(f"🤖 Intento de login #{intento} de {max_intentos}...")
-                if login_intcomex(driver, USERNAME, PASSWORD):
-                    login_success = True
-                    break
-                else:
-                    print(f"✗ Intento #{intento} fallido.")
-                    if intento < max_intentos:
-                        print("🔄 Reintentando en 5 segundos...")
-                        time.sleep(5)
+            print("\nPASO 1.1: INICIO DE SESIÓN EN INTCOMEX")
+            login_success = login_intcomex(driver, USERNAME, PASSWORD)
             
             if not login_success:
-                print("❌ Todos los intentos de login fallaron.")
+                print("❌ No se pudo completar el inicio de sesión.")
                 if must_close_driver: driver.quit()
-                raise LoginException("Fallo de autenticación tras 3 intentos con PyAutoGUI")
+                raise LoginException("Fallo de autenticación o tiempo de espera 2FA agotado.")
             
             print("\nPASO 1.2: OBTENER VALOR DEL DÓLAR")
             valor_dolar = obtener_dolar_web(driver)
