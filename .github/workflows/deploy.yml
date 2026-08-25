@@ -18,11 +18,17 @@ jobs:
           port: ${{ secrets.VPS_PORT }}
           script: |
             cd /root/tupartnerti
+            # Detener cualquier proceso de python antiguo que pudiera estar corriendo en el host fuera de Docker
+            pkill -f "telegram_agent.py" || true
+            pkill -f "main_orchestrator.py" || true
+            pkill -f "sync_bot.py" || true
+            systemctl stop vinibot || true 2>/dev/null
+            systemctl stop telegram-agent || true 2>/dev/null
+            
             git fetch origin
             git reset --hard origin/main
-            docker compose up -d --build
+            docker compose down --remove-orphans || true
+            docker compose up -d --build --remove-orphans
             docker compose restart dashboard-ui
             sleep 3
-            echo "=== Verifying .htpasswd on VPS ==="
-            cat /root/tupartnerti/dashboard/nginx/.htpasswd
-            docker compose exec -T dashboard-ui cat /etc/nginx/.htpasswd
+            echo "=== Despliegue completado y procesos limpios ==="
