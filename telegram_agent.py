@@ -80,11 +80,13 @@ def send_status(message):
         msg += "*Programación de cron:*\n"
         
         jobs = schedule.get_jobs()
-        if not jobs:
+        if not jobs and not rescheduled_retry_info:
             msg += "No hay tareas programadas."
         else:
             for job in jobs:
-                msg += f"- Siguiente ejecución: {job.next_run.strftime('%Y-%m-%d %H:%M:%S')}\n"
+                msg += f"- Siguiente ejecución programada: {job.next_run.strftime('%Y-%m-%d %H:%M:%S')}\n"
+            if rescheduled_retry_info:
+                msg += f"⏳ *Reprogramación por desbloqueo SMS:* {rescheduled_retry_info['display_time']} hrs (Aprox: {rescheduled_retry_info['target_time']})\n"
         
         # Verificar estado de la última ejecución
         try:
@@ -197,6 +199,51 @@ def handle_all_messages(message):
         else:
             bot.reply_to(message, "No te entendí. Si necesitas ingresar el código SMS, simplemente envíame el número.\nUsa el menú de comandos o /help para ver las opciones disponibles.")
 
+rescheduled_retry_info = None
+
+def programar_reintento_por_bloqueo(retry_dt):
+    global rescheduled_retry_info
+    tz_stgo = pytz.timezone('America/Santiago')
+    now = datetime.now(tz_stgo)
+    delay_seconds = max(5, int((retry_dt - now).total_seconds()))
+    rescheduled_retry_info = {
+        "target_time": retry_dt.strftime("%Y-%m-%d %H:%M:%S"),
+        "display_time": retry_dt.strftime("%H:%M")
+    }
+    
+    def retry_job():
+        global rescheduled_retry_info
+        print(f"[{datetime.now()}] ⏰ Ejecutando tarea reprogramada por desbloqueo de SMS...")
+        rescheduled_retry_info = None
+        if os.path.exists("data_activa/rate_limit_lock.json"):
+            try: os.remove("data_activa/rate_limit_lock.json")
+            except: pass
+        ejecutar_orquestador(allowed_chat_id, mode="resume")
+        
+    timer = threading.Timer(delay_seconds, retry_job)
+    timer.daemon = True
+    timer.start()
+    print(f"✅ Reintento programado con éxito para las {retry_dt.strftime('%H:%M')} hrs (en {delay_seconds} segs).")
+
+def check_pending_rate_limit_reschedule():
+    RATE_LIMIT_FILE = "data_activa/rate_limit_lock.json"
+    if os.path.exists(RATE_LIMIT_FILE):
+        try:
+            with open(RATE_LIMIT_FILE, "r", encoding="utf-8") as f:
+                rl_data = json.load(f)
+            detected_at = datetime.fromisoformat(rl_data["detected_at"])
+            minutes_delay = rl_data.get("reschedule_minutes", 135)
+            retry_dt = detected_at + timedelta(minutes=minutes_delay)
+            now = datetime.now()
+            if retry_dt > now:
+                tz_stgo = pytz.timezone('America/Santiago')
+                retry_dt_localized = tz_stgo.localize(retry_dt) if retry_dt.tzinfo is None else retry_dt
+                programar_reintento_por_bloqueo(retry_dt_localized)
+            else:
+                os.remove(RATE_LIMIT_FILE)
+        except Exception as e:
+            print(f"Nota: No se pudo restaurar reintento previo: {e}")
+
 LOCK_FILE = "data_activa/orchestrator.lock"
 _orchestrator_running = threading.Lock()
 
@@ -227,7 +274,31 @@ def ejecutar_orquestador(chat_id=None, mode="all"):
 
         current_orchestrator_process.wait()
 
-        if chat_id:
+        # Verificar si se detectó bloqueo temporal de SMS ("número inaccesible") para reprogramar automáticamente
+        RATE_LIMIT_FILE = "data_activa/rate_limit_lock.json"
+        if os.path.exists(RATE_LIMIT_FILE):
+            try:
+                with open(RATE_LIMIT_FILE, "r", encoding="utf-8") as f:
+                    rl_data = json.load(f)
+                
+                minutes_delay = rl_data.get("reschedule_minutes", 135)
+                tz_stgo = pytz.timezone('America/Santiago')
+                retry_dt = datetime.now(tz_stgo) + timedelta(minutes=minutes_delay)
+                retry_time_str = retry_dt.strftime("%H:%M")
+                
+                programar_reintento_por_bloqueo(retry_dt)
+                
+                msg_alerta = (
+                    "🚫 *ALERTA INTCOMEX (Bloqueo Temporal de SMS)*\n\n"
+                    "La plataforma de Intcomex indica que _'El número proporcionado es inaccesible'_ (bloqueo de seguridad por exceso de solicitudes de SMS).\n\n"
+                    f"⏰ *Reprogramación Automática:* He pospuesto la ejecución para las *{retry_time_str} hrs* (en 2 horas y 15 minutos), cuando el portal haya liberado el bloqueo de seguridad.\n\n"
+                    "💡 Te avisaré por aquí en cuanto comience para que puedas ingresar el código SMS tranquilamente."
+                )
+                if chat_id:
+                    bot.send_message(chat_id, msg_alerta, parse_mode="Markdown")
+            except Exception as e_rl:
+                print(f"Error procesando reprogramación por rate limit: {e_rl}")
+        elif chat_id:
             if current_orchestrator_process.returncode != 0 and current_orchestrator_process.returncode != 1:
                 # Retornos como -15 son típicos de SIGTERM (.terminate())
                 bot.send_message(chat_id, f"⚠️ Ejecución del ViniBot interrumpida. (Código de salida: {current_orchestrator_process.returncode})")
@@ -279,6 +350,9 @@ if __name__ == '__main__':
     
     # Configurar el menú nativo de comandos en Telegram
     setup_bot_menu()
+    
+    # Restaurar reprogramaciones pendientes por bloqueo de SMS si las hubiera
+    check_pending_rate_limit_reschedule()
     
     # Programar las ejecuciones asegurando la zona horaria de Chile sin importar dónde esté el PC físicamente
     schedule.every().day.at("08:00", "America/Santiago").do(job_wrapper, "08:00")

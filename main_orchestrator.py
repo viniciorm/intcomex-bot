@@ -342,10 +342,17 @@ def main():
                 nuevos_count = len(nuevos) if nuevos else 0
                 log_activity(f"Fase A Completada. Nuevos SKUs: {nuevos_count}", "Sincronización", "fa-check-circle")
             except LoginException as le:
-                error_msg = f"Fallo de Login: {le}"
-                resumen["sync"]["status"] = "CRITICAL_ERROR"
-                enviar_alerta_emergencia(error_msg)
-                raise Exception(error_msg) # Detener ejecución y enviar reporte final
+                if os.path.exists("data_activa/rate_limit_lock.json"):
+                    error_msg = "Bloqueo temporal de SMS detectado (Reprogramación automática activada)."
+                    resumen["sync"]["status"] = "RATE_LIMIT_BLOCKED"
+                    print(f"\n⏸️ {error_msg}")
+                    log_activity("Sincronización pospuesta por bloqueo temporal de SMS (+2h 15m)", "Sistema", "fa-clock")
+                    return
+                else:
+                    error_msg = f"Fallo de Login: {le}"
+                    resumen["sync"]["status"] = "CRITICAL_ERROR"
+                    enviar_alerta_emergencia(error_msg)
+                    raise Exception(error_msg) # Detener ejecución y enviar reporte final
 
         # FASE B: Deep Scan de Imágenes
         # Basado en estado: buscamos qué productos en el JSON no tienen imagen

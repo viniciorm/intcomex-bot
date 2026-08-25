@@ -568,16 +568,17 @@ def login_intcomex(driver, username, password):
                     # Verificar si la página muestra bloqueo por exceso de SMS ("número inaccesible")
                     page_src_check = driver.page_source.lower()
                     if "inaccesible" in page_src_check or "demasiados intentos" in page_src_check or "ha superado el número de intentos" in page_src_check:
-                        msg_bloqueo = "🚫 ALERTA INTCOMEX: Intcomex indica que 'El número proporcionado es inaccesible' (Bloqueo temporal por exceso de SMS solicitados).\n⏳ Debes esperar 1 a 2 horas para que el portal libere el bloqueo de seguridad. Luego usa /resume."
-                        print(f"\n{msg_bloqueo}")
+                        print("\n🚫 ALERTA INTCOMEX: Intcomex indica que 'El número proporcionado es inaccesible' (Bloqueo temporal por exceso de SMS).")
                         try:
-                            from credentials import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
-                            if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID:
-                                requests.post(f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage", data={
-                                    "chat_id": TELEGRAM_CHAT_ID,
-                                    "text": msg_bloqueo
-                                }, timeout=5)
-                        except: pass
+                            os.makedirs("data_activa", exist_ok=True)
+                            with open("data_activa/rate_limit_lock.json", "w", encoding="utf-8") as f:
+                                json.dump({
+                                    "detected_at": datetime.now().isoformat(),
+                                    "reason": "El número proporcionado es inaccesible (Bloqueo temporal por exceso de SMS)",
+                                    "reschedule_minutes": 135
+                                }, f, indent=4)
+                        except Exception as e_lock:
+                            print(f"Error escribiendo rate_limit_lock.json: {e_lock}")
                         return False
 
                     print("\n" + "="*50)
@@ -616,6 +617,15 @@ def login_intcomex(driver, username, password):
                                 current_page_text = driver.page_source.lower()
                                 if "inaccesible" in current_page_text:
                                     print("🚫 Detectado bloqueo de número durante la espera.")
+                                    try:
+                                        os.makedirs("data_activa", exist_ok=True)
+                                        with open("data_activa/rate_limit_lock.json", "w", encoding="utf-8") as f:
+                                            json.dump({
+                                                "detected_at": datetime.now().isoformat(),
+                                                "reason": "El número proporcionado es inaccesible (Bloqueo temporal por exceso de SMS)",
+                                                "reschedule_minutes": 135
+                                            }, f, indent=4)
+                                    except: pass
                                     return False
                                 if "expirado" in current_page_text or "caducado" in current_page_text or "tiempo agotado" in current_page_text:
                                     print("⚠️ La página web indica que el código actual ha expirado. Procediendo al siguiente reenvío...")
