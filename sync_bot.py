@@ -565,6 +565,21 @@ def login_intcomex(driver, username, password):
                     except Exception as e:
                         print(f"Nota: No se pudo clickear automáticamente en 'Enviar/Reenviar Código' ({e}). Hazlo manual si es necesario.")
                         
+                    # Verificar si la página muestra bloqueo por exceso de SMS ("número inaccesible")
+                    page_src_check = driver.page_source.lower()
+                    if "inaccesible" in page_src_check or "demasiados intentos" in page_src_check or "ha superado el número de intentos" in page_src_check:
+                        msg_bloqueo = "🚫 ALERTA INTCOMEX: Intcomex indica que 'El número proporcionado es inaccesible' (Bloqueo temporal por exceso de SMS solicitados).\n⏳ Debes esperar 1 a 2 horas para que el portal libere el bloqueo de seguridad. Luego usa /resume."
+                        print(f"\n{msg_bloqueo}")
+                        try:
+                            from credentials import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+                            if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID:
+                                requests.post(f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage", data={
+                                    "chat_id": TELEGRAM_CHAT_ID,
+                                    "text": msg_bloqueo
+                                }, timeout=5)
+                        except: pass
+                        return False
+
                     print("\n" + "="*50)
                     print(f"Por favor revisa tu teléfono. El agente de Telegram está en espera (Intento {attempts_2fa}/{max_attempts_2fa}).")
                     
@@ -595,10 +610,13 @@ def login_intcomex(driver, username, password):
                             except: pass
                         if codigo_sms: break
                         
-                        # Comprobar periódicamente si en la página web apareció un aviso de error / expiración de código
-                        if wait_sms > 0 and wait_sms % 30 == 0:
+                        # Comprobar periódicamente si en la página web apareció un aviso de error / bloqueo / expiración
+                        if wait_sms > 0 and wait_sms % 15 == 0:
                             try:
                                 current_page_text = driver.page_source.lower()
+                                if "inaccesible" in current_page_text:
+                                    print("🚫 Detectado bloqueo de número durante la espera.")
+                                    return False
                                 if "expirado" in current_page_text or "caducado" in current_page_text or "tiempo agotado" in current_page_text:
                                     print("⚠️ La página web indica que el código actual ha expirado. Procediendo al siguiente reenvío...")
                                     break
